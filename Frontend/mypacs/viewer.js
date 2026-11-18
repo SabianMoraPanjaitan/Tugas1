@@ -11,39 +11,144 @@
   const S = { vol: null, P: [0, 0, 0], lo: 0, hi: 1, preset: '', cmap: 'grey', invert: false, filter: '', slab: 0, tool: 'cross', layout: '2x2', big: 'ax', active: 'ax', ann: [], pending: null, hover: null, seriesId: '' };
   let metas = [], lut = new Uint32Array(65536), lutDirty = true, annId = 0;
 
+  // ================= backend (live) =================
+  // When the FastAPI backend serves this page, studies, images and the report come from it (MyApi).
+  // Otherwise everything below falls back to MockStore and the sample series, as in the prototype.
+  let live = false, me = null, canReport = true, archive = [], orderPri = {}, loadTok = 0;
+  const REPORT_ROLES = ['radiolog', 'admin'];                     // backend: REPORTERS
+  const IMP = '\n\nImpression: ';                                  // the backend keeps one reading text ("finding")
+  const joinFinding = (f, imp) => imp ? f + IMP + imp : f;
+  const splitFinding = (txt, diag) => { txt = txt || ''; const i = txt.indexOf(IMP); return i < 0 ? [txt, diag || ''] : [txt.slice(0, i), txt.slice(i + IMP.length)]; };
+  // No backend route keeps a draft, so drafts stay in this browser (localStorage), per study.
+  const DKEY = id => 'mypacs.viewer.draft.' + id;
+  const getDraft = id => { try { return JSON.parse(localStorage.getItem(DKEY(id)) || 'null'); } catch (_) { return null; } };
+  const putDraft = (id, d) => { try { localStorage.setItem(DKEY(id), JSON.stringify(d)); return true; } catch (_) { return false; } };
+  const dropDraft = id => { try { localStorage.removeItem(DKEY(id)); } catch (_) {} };
+  function ageOf(iso) {
+    const d = new Date(iso); if (!iso || isNaN(d)) return '';
+    const n = new Date(); let a = n.getFullYear() - d.getFullYear();
+    if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
+    return a;
+  }
+  // a backend study (GET /api/studies) -> the fields this page shows; "-" where the backend has nothing
+  function view(a) {
+    const sex = a.gender === 'Perempuan' ? 'F' : a.gender === 'Laki-laki' ? 'M' : '-', age = ageOf(a.birthDate), d = new Date(a.created), ok = a.created && !isNaN(d);
+    const pri = orderPri[a.order_id] || '-', draft = a.sent ? null : getDraft(a.id);
+    const [findings, impression] = a.sent ? splitFinding(a.finding, a.diagnosis) : draft ? [draft.findings || '', draft.impression || ''] : ['', ''];
+    return {
+      api: a, mrn: a.id, pri, priClass: pri.toUpperCase() === 'CITO' ? 'stat' : pri === '-' ? '' : 'routine',
+      name: a.name || '-', ageSex: (age === '' ? '-' : age) + ' / ' + sex, exam: a.description || a.modality || '-', mod: a.modality || '',
+      date: ok ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-',
+      clock: ok ? String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0') : '',
+      history: a.clinical || '-', referrer: a.doctor || '-', findings, impression, state: a.sent ? 'Final' : draft ? 'Draft' : 'Unread',
+    };
+  }
+  function note(text, kind) { const n = $('#r-note'); n.hidden = !text; n.textContent = text || ''; n.className = 'note' + (kind ? ' ' + kind : ''); }
+  function sentNote() {
+    const a = study && study.api; if (!a || !a.sent) return '';
+    return 'Sent to SATUSEHAT' + (a.reported_by ? ' by ' + a.reported_by : '') + '.' + (a.imaging_study_id ? '\nImagingStudy/' + a.imaging_study_id : '') + (a.diagnostic_report_id ? '\nDiagnosticReport/' + a.diagnostic_report_id : '');
+  }
+  async function startLive() {
+    live = true;
+    me = await MyApi.user();
+    canReport = !!me && REPORT_ROLES.includes(me.role);
+    try { archive = await MyApi.get('studies'); }
+    catch (e) { blankStudy(); message(e.status === 403 ? 'Your account cannot open the image archive.' : 'Could not read the worklist: ' + e.message); return; }
+    try { for (const o of await MyApi.get('orders')) orderPri[o.id] = (o.data && o.data.priority) || ''; } catch (_) {}   // priority lives on the request
+    const want = params.get('study') || params.get('mrn'), a = archive.find(x => x.id === want) || archive[0];
+    if (!a) { blankStudy(); message('The archive has no studies yet.\nPick a sample series on the left, or open a DICOM folder.'); return; }
+    loadStudy(view(a), a.id !== want);
+  }
+  function blankStudy() {
+    study = null; const pri = $('#v-pri'); pri.textContent = '-'; pri.className = 'pri';
+    for (const id of ['#v-name', '#v-meta', '#v-exam', '#v-date', '#r-hist', '#r-ref']) $(id).textContent = '';
+    $('#r-find').value = $('#r-imp').value = ''; setState('Unread'); paintSeries();
+  }
+
   // ================= study header and report =================
   function loadStudy(s, push) {
     study = s;
-    if (push) history.replaceState(null, '', 'viewer.html?mrn=' + s.mrn);
-    const pri = $('#v-pri'); pri.textContent = s.pri; pri.className = 'pri ' + s.pri.toLowerCase();
+    if (push) history.replaceState(null, '', s.api ? 'viewer.html?study=' + encodeURIComponent(s.api.id) : 'viewer.html?mrn=' + s.mrn);
+    const pri = $('#v-pri'); pri.textContent = s.pri; pri.className = 'pri ' + (s.priClass != null ? s.priClass : s.pri.toLowerCase());
     MyFx.swap($('#v-name'), s.name); MyFx.swap($('#v-meta'), s.mrn + '   ·   ' + s.ageSex);
-    MyFx.swap($('#v-exam'), s.exam.replace('\n', ' ')); MyFx.swap($('#v-date'), s.date + '  ' + s.clock);
+    MyFx.swap($('#v-exam'), s.exam.replace('\n', ' ')); MyFx.swap($('#v-date'), (s.date + '  ' + s.clock).trim());
     $('#r-hist').textContent = s.history; $('#r-ref').textContent = s.referrer;
     $('#r-find').value = s.findings || ''; $('#r-imp').value = s.impression || '';
     setState(s.state); document.title = 'MyPACS — ' + s.name;
+    if (s.api) { openArchive(s.api); return; }
     const want = s.recon || DEFAULT[s.mod] || '';
     paintSeries();
     if (want && metas.some(m => m.id === want)) openSeries(want);
     else { S.vol = null; S.seriesId = ''; paintSeries(); message('No images are stored for this demo study (' + s.mod + ').\nPick a sample series on the left, or open a DICOM folder.'); }
   }
   function setState(st) {
-    const e = $('#r-state'); e.textContent = st === 'Final' ? 'Finalized' : st; e.dataset.s = st;
-    const done = st === 'Final';
-    $('#r-find').readOnly = $('#r-imp').readOnly = done;
+    const e = $('#r-state'); e.textContent = st === 'Final' ? (live ? 'Sent' : 'Finalized') : st; e.dataset.s = st;
+    const done = st === 'Final', ro = done || !canReport || !study;
+    $('#r-find').readOnly = $('#r-imp').readOnly = ro;
     $('#r-final').textContent = done ? 'Reopen Report' : 'Finalize';
-    $('#r-draft').style.display = done ? 'none' : '';
+    $('#r-final').style.display = !canReport || !study || (live && done) ? 'none' : '';   // a sent study cannot be sent again
+    $('#r-final').disabled = false;
+    $('#r-draft').style.display = ro ? 'none' : '';
+    note(!live ? '' : !canReport ? (sentNote() ? sentNote() + '\n' : '') + 'Read only: only a radiologist or admin can write the report.'
+      : done ? sentNote() : study ? 'Drafts are kept in this browser only. Finalize sends the report to SATUSEHAT.' : '', done && live ? 'ok' : '');
   }
   $('#r-draft').addEventListener('click', () => {
+    if (!study || !canReport) return;
+    if (study.api) {
+      const ok = putDraft(study.api.id, { findings: $('#r-find').value, impression: $('#r-imp').value });
+      study.state = 'Draft'; study.findings = $('#r-find').value; study.impression = $('#r-imp').value;
+      setState('Draft'); MyFx.toast(ok ? 'Draft saved in this browser' : 'This browser would not keep the draft'); return;
+    }
     study = MockStore.update(study.mrn, { findings: $('#r-find').value, impression: $('#r-imp').value, state: 'Draft' });
     setState('Draft'); MyFx.toast('Draft saved');
   });
   $('#r-final').addEventListener('click', () => {
+    if (!study || !canReport) return;
+    if (study.api) { finalizeLive(); return; }
     if (study.state === 'Final') { study = MockStore.update(study.mrn, { state: 'Draft' }); setState('Draft'); MyFx.toast('Report reopened as draft'); return; }
     if (!$('#r-find').value.trim()) { $('#r-find').focus(); MyFx.toast('Write the findings first'); return; }
     study = MockStore.update(study.mrn, { findings: $('#r-find').value, impression: $('#r-imp').value, state: 'Final' });
     setState('Final'); MyFx.toast('Report finalized');
   });
+  // Finalize = the old PACS page's "Kirim ke SATUSEHAT": POST /api/satusehat/send-study with the study and the reading.
+  // Only fields the backend already takes; the ICD-10 code is sent only if the study already has one.
+  const errorText = r => { try { const i = r.issue && r.issue[0]; return (i && ((i.details && i.details.text) || i.diagnostics)) || (r.fault && r.fault.faultstring) || JSON.stringify(r).slice(0, 220); } catch (_) { return ''; } };
+  async function finalizeLive() {
+    const a = study.api, f = $('#r-find').value.trim(), imp = $('#r-imp').value.trim();
+    if (!f) { $('#r-find').focus(); MyFx.toast('Write the findings first'); return; }
+    const body = { name: a.name || '', nik: a.nik || '', modality: a.modality || '', description: a.description || '', icd10: a.icd10 || '',
+      diagnosis: imp, finding: joinFinding(f, imp), instalasi: a.instalasi || 'Instalasi Radiologi', archive_id: a.id };
+    const btn = $('#r-final'); btn.disabled = true; btn.textContent = 'Sending…'; note('Sending to SATUSEHAT…');
+    let r;
+    try { r = await MyApi.post('satusehat/send-study', body); }
+    catch (e) {
+      if (!study || study.api !== a) return;
+      btn.disabled = false; btn.textContent = 'Finalize';
+      if (e.status === 409) { a.sent = true; study = view(a); setState('Final'); }   // already sent from elsewhere
+      note(e.status === 403 ? 'Only a radiologist or admin can send the report.' : e.status === 409 ? e.detail : 'Could not send: ' + e.message, 'warn');
+      return;
+    }
+    if (r && r.ok) {
+      Object.assign(a, { sent: true, icd10: body.icd10, diagnosis: body.diagnosis, finding: body.finding, imaging_study_id: r.imaging_study_id || '', diagnostic_report_id: r.diagnostic_report_id || '', reported_by: me ? me.username : '' });
+      dropDraft(a.id);
+    }
+    if (!study || study.api !== a) return;                          // moved to another study meanwhile
+    if (r && r.ok) {
+      study = view(a); setState('Final');
+      note('Sent to SATUSEHAT (' + (r.mode || '?') + ').\nImagingStudy/' + a.imaging_study_id + '\nDiagnosticReport/' + a.diagnostic_report_id, 'ok');
+      MyFx.toast('Report sent to SATUSEHAT (' + (r.mode || '?') + ')');
+    } else {
+      const bad = ((r && r.logs) || []).find(l => !(Number(l.status) >= 200 && Number(l.status) < 300));
+      btn.disabled = false; btn.textContent = 'Finalize';
+      note('Not sent (' + ((r && r.mode) || '?') + ')' + (bad ? ': ' + bad.step + ' answered ' + bad.status + (errorText(bad.response || {}) ? ', ' + errorText(bad.response || {}) : '') : '') + '.', 'warn');
+    }
+  }
   function step(d) {
+    if (live) {
+      if (!archive.length) return;
+      const i = study && study.api ? archive.findIndex(x => x.id === study.api.id) : -1, n = archive[(i + d + archive.length) % archive.length];
+      if (n) loadStudy(view(n), true); return;
+    }
     const active = MockStore.all().filter(r => r.state !== 'Final' || r.mrn === study.mrn);
     const i = active.findIndex(r => r.mrn === study.mrn), n = active[(i + d + active.length) % active.length];
     if (n) loadStudy(n, true);
@@ -55,22 +160,67 @@
 
   // ================= series =================
   function message(text) { const l = $('#loading'); l.classList.remove('off'); l.classList.toggle('msg', !!text); l.querySelector('span').textContent = text || 'Loading the series…'; }
+  // the study's series from the backend: one archived file is one series (its size is known once loaded)
+  const archiveMeta = a => ({ id: 'api:' + a.id, label: a.description || a.modality || 'Study', modality: a.modality || '', bodyPart: '', dims: null, archive: true, noFile: !a.file });
   function paintSeries() {
     const box = $('#series'); box.textContent = '';
-    const list = S.vol && S.vol.meta.local ? [S.vol.meta, ...metas] : metas;
-    list.forEach(m => {
+    const own = [], cur = S.vol && S.vol.meta;
+    if (live && study && study.api) own.push(cur && cur.archive && cur.id === 'api:' + study.api.id ? cur : archiveMeta(study.api));
+    if (cur && cur.local && !cur.archive) own.push(cur);
+    const item = m => {
       const b = document.createElement('button'); b.className = 's-item' + (m.id === S.seriesId ? ' on' : '');
       b.innerHTML = '<b></b><span></span><em></em>';
-      b.querySelector('b').textContent = m.label; b.querySelector('span').textContent = m.modality + ' ' + (m.bodyPart || '') + '\n' + m.dims.join(' × ');
+      b.querySelector('b').textContent = m.label; b.querySelector('span').textContent = (m.modality || '-') + ' ' + (m.bodyPart || '') + '\n' + (m.dims ? m.dims.join(' × ') : m.noFile ? 'No images yet' : '-');
       b.querySelector('span').style.whiteSpace = 'pre';
-      const tag = b.querySelector('em'); tag.textContent = m.local ? 'From this computer' : m.synthetic ? 'Synthetic phantom' : 'Course data'; if (m.synthetic) tag.className = 'ph';
-      if (!m.local) b.addEventListener('click', () => openSeries(m.id));
+      const tag = b.querySelector('em'); tag.textContent = m.archive ? 'From the archive' : m.local ? 'From this computer' : m.synthetic ? 'Synthetic phantom' : 'Course data'; if (m.synthetic) tag.className = 'ph';
+      if (m.archive) b.addEventListener('click', () => { if (study && study.api && m.id !== (S.vol && S.vol.meta.id)) openArchive(study.api); });
+      else if (!m.local) b.addEventListener('click', () => openSeries(m.id));
       box.append(b);
-    });
+    };
+    own.forEach(item);
+    if (live && metas.length) { const h = document.createElement('div'); h.className = 's-head'; h.textContent = 'Samples'; box.append(h); }
+    metas.forEach(item);
   }
   async function openSeries(id) {
+    const tok = ++loadTok;
     message(''); S.seriesId = id; paintSeries();
-    try { setVolume(await E.load(id)); } catch (e) { message('Could not load the series: ' + e.message); }
+    try { const v = await E.load(id); if (tok === loadTok) setVolume(v); } catch (e) { if (tok === loadTok) message('Could not load the series: ' + e.message); }
+  }
+  // An archived study's images, fetched with this tab's login and built in the browser by the engine.
+  const isNifti = b => { const u = new Uint8Array(b, 0, Math.min(b.byteLength, 4)); return (u[0] === 0x1F && u[1] === 0x8B) || (b.byteLength >= 348 && new DataView(b).getInt32(0, true) === 348); };
+  async function openArchive(a) {
+    const tok = ++loadTok, live3 = () => tok === loadTok;
+    S.vol = null; S.seriesId = 'api:' + a.id; paintSeries();
+    if (!a.file) { message('No images are stored for this study yet.\nPick a sample series on the left, or open a DICOM folder.'); return; }
+    message(''); const say = t => { if (live3()) $('#loading span').textContent = t; };
+    const prog = (x, n) => say('Building the volume: slice ' + x + ' of ' + n);
+    try {
+      const nii = /\.nii(\.gz)?$/i.test(a.file), id = encodeURIComponent(a.id);
+      let urls = ['studies/' + id + '/file'];
+      if (!nii && canReport) {                                     // /slices is for radiolog/admin; others read the one file
+        try { const l = await MyApi.get('studies/' + id + '/slices'); if (l && l.urls && l.urls.length) urls = l.urls; }
+        catch (e) { if (e.status !== 403) throw e; }
+      }
+      let done = 0; say(urls.length > 1 ? 'Downloading ' + urls.length + ' images…' : 'Downloading the image…');
+      const bufs = await Promise.all(urls.map(async u => {
+        const r = await MyApi.fetchRaw(u);
+        if (!r.ok) { let d = ''; try { d = (await r.json()).detail || ''; } catch (_) {} throw new Error(r.status === 403 ? 'your account may not open these images' : (d || 'HTTP ' + r.status)); }
+        const b = await r.arrayBuffer(); done++; if (urls.length > 1) say('Downloading image ' + done + ' of ' + urls.length); return b;
+      }));
+      if (!live3()) return;
+      let v;
+      if (bufs.length === 1 && (nii || isNifti(bufs[0]))) v = await E.fromNifti(bufs[0], a.file.replace(/^[0-9a-f]{12}_/, ''), prog);
+      else {
+        const items = []; let bad = '';
+        bufs.forEach((b, i) => { const t = DicomLite.parse(b); if (t.rows && t.cols && t.pixelOffset) items.push({ file: { name: String(i + 1).padStart(4, '0') + '.dcm', arrayBuffer: async () => b }, tags: t }); else if (t.error) bad = t.error; });
+        const groups = DicomLite.group(items).sort((x, y) => y.length - x.length);
+        if (!groups.length) throw new Error(bad || 'no DICOM images in this study');
+        v = await E.fromDicom(groups[0], prog);
+      }
+      if (!live3()) return;
+      v.meta.id = 'api:' + a.id; v.meta.archive = true; v.meta.label = a.description || v.meta.label;
+      setVolume(v);
+    } catch (e) { if (live3()) message('Could not load the images: ' + e.message); }
   }
   function setVolume(v) {
     S.vol = v; S.seriesId = v.meta.id; S.P = v.size.map(x => x / 2); S.ann = []; S.pending = null; S.hover = null; S.slab = 0; S.filter = '';
@@ -84,7 +234,7 @@
     if (v.meta.flat) { f.style.display = 'none'; f.src = 'about:blank'; msg.textContent = 'A single image has no 3D view.'; msg.classList.add('on'); }
     else if (v.meta.local) { f.style.display = ''; msg.classList.remove('on'); local3d = v; f.src = 'recon.html?embed=1&wait=1&t=' + Date.now(); }   // the 3D pane asks for the volume once it is ready
     else { f.style.display = ''; msg.classList.remove('on'); f.src = 'recon.html?embed=1&series=' + encodeURIComponent(v.meta.id); }
-    $('#v-3d').href = 'recon.html?mrn=' + encodeURIComponent(study.mrn) + (v.meta.local ? '' : '&series=' + encodeURIComponent(v.meta.id));
+    $('#v-3d').href = 'recon.html' + (study ? '?mrn=' + encodeURIComponent(study.mrn) : '?') + (v.meta.local ? '' : '&series=' + encodeURIComponent(v.meta.id));
     paintSeries(); paintDisplay(); paintMeasures(); $('#loading').classList.add('off'); drawAll();
   }
   let local3d = null;
@@ -98,12 +248,13 @@
   async function openLocal(list) {
     const files = [...list].filter(f => !f.name.startsWith('.') && f.size > 132);
     if (!files.length) return;
+    const tok = ++loadTok;
     message('Reading ' + files.length + (files.length > 1 ? ' files…' : ' file…')); $('#loading').classList.remove('msg');
     const step = (a, b) => { $('#loading span').textContent = 'Building the volume: slice ' + a + ' of ' + b; };
     try {
       const nii = files.find(f => /\.nii(\.gz)?$/i.test(f.name));
       if (nii) {
-        const v = await E.fromNifti(await nii.arrayBuffer(), nii.name, step); setVolume(v);
+        const v = await E.fromNifti(await nii.arrayBuffer(), nii.name, step); if (tok !== loadTok) return; setVolume(v);
         MyFx.toast(v.meta.tilted ? 'Opened. The scan is tilted: it is shown straightened, so sizes are slightly off.' : v.meta.orientationAssumed ? 'Opened. The file does not say which way it faces: left and right may be swapped.' : 'Opened ' + nii.name);
         return;
       }
@@ -112,10 +263,11 @@
       const groups = DicomLite.group(items).sort((a, b) => b.length - a.length);
       if (!groups.length) throw new Error(bad || 'no DICOM images there');
       const v = await E.fromDicom(groups[0], step);
+      if (tok !== loadTok) return;
       setVolume(v);
       const what = v.meta.flat ? 'one image' : groups[0].length + ' slices', note = v.meta.lossy ? ' (lossy JPEG: values are approximate)' : v.meta.uncalibrated ? ' (no pixel size in the file: lengths are in pixels)' : v.meta.spacingAt === 'detector' ? ' (sizes are measured at the detector)' : '';
       MyFx.toast(v.meta.anonymised ? 'Opened ' + what + ' from this computer' + note : 'These files carry patient identity. They stay on this computer.');
-    } catch (err) { message('Could not open it: ' + err.message); }
+    } catch (err) { if (tok === loadTok) message('Could not open it: ' + err.message); }
   }
   for (const id of ['#open-dir', '#open-files']) $(id).addEventListener('change', e => { const l = [...e.target.files]; e.target.value = ''; openLocal(l); });
   $('#d-ct').addEventListener('click', () => {
@@ -359,7 +511,8 @@
   $('#m-clear').addEventListener('click', () => { S.ann = []; S.pending = null; paintMeasures(); drawAll(); });
   $('#m-add').addEventListener('click', () => {
     if (!S.ann.length) { MyFx.toast('Nothing measured yet'); return; }
-    if (study.state === 'Final') { MyFx.toast('Reopen the report first'); return; }
+    if (!study || !canReport) { MyFx.toast('Only a radiologist or admin can edit the report'); return; }
+    if (study.state === 'Final') { MyFx.toast(live ? 'This report is already sent' : 'Reopen the report first'); return; }
     const t = $('#r-find'), lines = S.ann.map(a => '- ' + NAME[a.type] + ' (' + where(a) + '): ' + annText(a).join(', '));
     t.value = (t.value.trim() ? t.value.trim() + '\n' : '') + lines.join('\n'); tab('report'); MyFx.toast(lines.length + ' measurement' + (lines.length > 1 ? 's' : '') + ' added to the findings');
   });
@@ -378,6 +531,10 @@
   // ================= start =================
   setTool('cross'); flags();
   addEventListener('resize', () => setTool(S.tool));
-  E.list().then(m => { metas = m; loadStudy(study); if (params.get('report')) setTimeout(() => $('#r-find').focus(), 700); });
-  window.Viewer = { S, panes, drawAll, setP, setWindow, setTool, annText, paintMeasures, geom };
+  E.list().then(async m => {
+    metas = m;
+    if (await MyApi.ready) await startLive(); else loadStudy(study);
+    if (params.get('report') && !$('#r-find').readOnly) setTimeout(() => $('#r-find').focus(), 700);
+  });
+  window.Viewer = { S, panes, drawAll, setP, setWindow, setTool, annText, paintMeasures, geom, loadStudy, openArchive, get study() { return study; }, get live() { return live; }, get archive() { return archive; } };
 })();

@@ -24,6 +24,10 @@
 .real .s-item em{display:inline-block;margin-top:.6rem;font-style:normal;font-size:1.3rem;padding:.2rem .9rem;border-radius:1rem;background:var(--pill)}
 .real .s-item em.ph{background:rgba(255,214,120,.22)}
 .real .series .list{flex:1;min-height:0}
+.real .s-head{flex:none;margin-top:.6rem;font-size:1.4rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.real .report .note.ok{color:#9ff5d8}
+#r-note{white-space:pre-line;overflow-wrap:anywhere}
+.real .report .pbtn[disabled]{opacity:.6;pointer-events:none}
 .open-row{flex:none;display:flex;flex-direction:column;gap:.8rem}
 .open-dir{flex:none;display:flex;align-items:center;justify-content:center;height:4.2rem;border-radius:1.4rem;border:.15rem dashed rgba(255,255,255,.5);font-size:1.6rem;cursor:pointer;text-align:center;transition:background .2s}
 .open-dir:hover{background:rgba(255,255,255,.1)}

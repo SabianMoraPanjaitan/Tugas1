@@ -38,12 +38,37 @@
 <script src="mockstore.js"></script>
 <script src="fx.js"></script>
 <script>
-(function () {
+(async function () {
   const $ = s => document.querySelector(s), id = new URLSearchParams(location.search).get('d') || 'igd', inst = MockStore.installation(id);
-  $('#d-name').textContent = inst.name; $('#d-local').textContent = inst.local + ' · requests to Radiology'; document.title = 'MyPACS — ' + inst.name;
-  const exams = MockStore.exams(), form = { mod: 'CT', pri: 'ROUTINE', files: [] };
-  MockStore.patients().forEach(p => $('#f-pat').add(new Option(p.name + '  ·  ' + p.mrn + '  ·  ' + p.age + ' / ' + p.sex, p.mrn)));
-  MockStore.referrers().forEach(r => $('#f-ref').add(new Option(r, r)));
+  // The backend keeps no "unit" on a request. Only the surgery role (dokter_bedah) may order exams there
+  // (ORDERERS in main.py), so backend requests are shown as Bedah's. The other units stay on demo data.
+  const LIVE_UNITS = ['bedah'];
+  const live = (await MyApi.ready) && LIVE_UNITS.includes(id);
+  $('#d-name').textContent = inst.name; $('#d-local').textContent = inst.local + ' · requests to Radiology' + (MyApi.live && !live ? ' · demo' : ''); document.title = 'MyPACS — ' + inst.name;
+  // the backend's exam modalities (EXAM_MODALITIES in main.py) and the MyPACS exam names that fit each
+  const API_MOD = { DX: 'X-Ray', CT: 'CT', MR: 'MRI', US: 'USG' };
+  const allExams = MockStore.exams(), exams = live ? Object.fromEntries(Object.entries(API_MOD).map(([k, m]) => [k, allExams[m]])) : allExams;
+  const form = { mod: 'CT', pri: live ? 'Biasa' : 'ROUTINE', files: [] };
+  let me = null;
+  const ageOf = b => { const d = new Date(b); if (!b || isNaN(d)) return '-'; const n = new Date(); let a = n.getFullYear() - d.getFullYear(); if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--; return a; };
+  const sexOf = g => g === 'Laki-laki' ? 'M' : g === 'Perempuan' ? 'F' : '-';
+  if (live) {
+    // priority: the backend's two values, as the old bedah.html sends them
+    $('#f-pri').innerHTML = '<button type="button" data-v="Biasa">Routine</button><button type="button" data-v="CITO">CITO</button>';
+    // the referring doctor is the logged-in user (the backend sets it from the login)
+    me = await MyApi.user();
+    $('#f-ref').add(new Option(me ? me.full_name : '-', '')); $('#f-ref').disabled = true;
+    // supporting documents: the backend has no route for them
+    $('#f-files').innerHTML = '<span class="label">Not stored by the SIMRS backend yet.</span>';
+    let patients = [];
+    try { patients = await MyApi.get('patients'); }
+    catch (err) { $('#f-pat').add(new Option(err.status === 403 ? 'Your account cannot see the patient list.' : 'Patient list could not be loaded: ' + err.message, '')); }
+    if (!patients.length && !$('#f-pat').options.length) $('#f-pat').add(new Option('No registered patients yet.', ''));
+    patients.forEach(p => $('#f-pat').add(new Option(p.name + '  ·  ' + p.nik + '  ·  ' + ageOf(p.birthDate) + ' / ' + sexOf(p.gender), p.nik)));
+  } else {
+    MockStore.patients().forEach(p => $('#f-pat').add(new Option(p.name + '  ·  ' + p.mrn + '  ·  ' + p.age + ' / ' + p.sex, p.mrn)));
+    MockStore.referrers().forEach(r => $('#f-ref').add(new Option(r, r)));
+  }
   Object.keys(exams).forEach(m => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = m; b.textContent = m; $('#f-mod').append(b); });
   function seg(box, key, after) {
     const paint = () => box.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === form[key]));
@@ -55,25 +80,56 @@
     const box = $('#f-files'); box.querySelectorAll('.chip').forEach(c => c.remove());
     form.files.forEach(f => { const c = document.createElement('span'); c.className = 'chip'; c.textContent = f.name + '  ·  ' + Math.max(1, Math.round(f.size / 1024)) + ' KB'; box.prepend(c); });
   }
-  $('#f-file').addEventListener('change', e => { for (const f of e.target.files) form.files.push({ name: f.name, size: f.size }); e.target.value = ''; paintFiles(); });
-  $('#form').addEventListener('submit', e => {
+  if (!live) $('#f-file').addEventListener('change', e => { for (const f of e.target.files) form.files.push({ name: f.name, size: f.size }); e.target.value = ''; paintFiles(); });
+  $('#form').addEventListener('submit', async e => {
     e.preventDefault();
+    if (live) {
+      const nik = $('#f-pat').value, btn = $('#form button[type=submit]');
+      if (!nik) { MyFx.toast('Pick a registered patient first'); return; }
+      // exactly the body POST /api/orders takes (as the old bedah.html sends it). No ICD-10 code: this form has none.
+      const body = { patient: { nik }, exam: { modality: form.mod, description: $('#f-exam').value.replace('\n', ' ') },
+        indication: { text: $('#f-hist').value.trim() }, priority: form.pri, note: '' };
+      btn.disabled = true;
+      try {
+        const o = await MyApi.post('orders', body);
+        $('#f-hist').value = ''; view = 'open'; paintFilter(); await render(o.id); MyFx.toast('Request ' + o.id + ' sent to Radiology');
+      } catch (err) {
+        MyFx.toast(err.status === 403 ? 'Your account (' + (me ? me.role : '?') + ') cannot send requests. Sign in as a ward doctor.' : 'Not sent: ' + err.message);
+      }
+      btn.disabled = false; return;
+    }
     const p = MockStore.patients().find(x => x.mrn === $('#f-pat').value);
     const o = MockStore.addOrder({ dept: id, ...p, pri: form.pri, mod: form.mod, exam: $('#f-exam').value, referrer: $('#f-ref').value, history: $('#f-hist').value.trim(), files: form.files });
     $('#f-hist').value = ''; form.files = []; paintFiles(); view = 'open'; paintFilter(); render(o.id); MyFx.toast('Request ' + o.id + ' sent to Radiology');
   });
 
+  // a backend request in the shape this page draws (statuses: requested -> imaged -> reported)
+  const ST = { requested: 'Requested', imaged: 'Imaged', reported: 'Reported' };
+  // the exam as shown: the modality code, unless the description already starts with it ("CT Head", "MRI Brain")
+  const examText = ex => { const m = ex.modality || '', d = ex.description || ''; return (m && d.toUpperCase().startsWith(m) ? d : [m, d].filter(Boolean).join(' ')) || '-'; };
+  const fromApi = o => { const d = o.data || {}, p = d.patient || {}, ex = d.exam || {}, s = o.study || {}, t = new Date(o.created);
+    return { id: o.id, name: p.name || '-', mrn: p.nik || '-', pri: d.priority === 'CITO' ? 'CITO' : 'ROUTINE', priCls: d.priority === 'CITO' ? 'stat' : 'routine',
+      exam: examText(ex), status: ST[o.status] || o.status,
+      clock: isNaN(t) ? '-' : String(t.getHours()).padStart(2, '0') + '.' + String(t.getMinutes()).padStart(2, '0') + ' WIB',
+      impression: s.icd10 ? s.icd10 + ' ' + (s.diagnosis || '') + (s.finding ? ' · ' + s.finding : '') : '' }; };
+
   let view = 'open';
-  const STEPS = ['Requested', 'Accepted', 'Imaged', 'Reported'], OPEN = ['Requested', 'Accepted', 'Imaged'];
+  const STEPS = live ? ['Requested', 'Imaged', 'Reported'] : ['Requested', 'Accepted', 'Imaged', 'Reported'], OPEN = ['Requested', 'Accepted', 'Imaged'];
   const paintFilter = () => document.querySelectorAll('#filter button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === view));
   $('#filter').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; view = b.dataset.v; paintFilter(); render(); });
-  function render(fresh) {
+  async function load() {
+    if (!live) return MockStore.orders().filter(o => o.dept === id);
+    try { return (await MyApi.get('orders')).map(fromApi); }
+    catch (err) { const box = $('#list'); box.innerHTML = '<div class="empty"></div>'; box.firstChild.textContent = err.status === 403 ? 'Your account cannot see requests.' : 'Requests could not be loaded: ' + err.message; return null; }
+  }
+  async function render(fresh) {
+    const rows = await load(); if (!rows) return;
     const box = $('#list'); box.textContent = '';
-    const list = MockStore.orders().filter(o => o.dept === id && (view === 'all' || (view === 'open') === OPEN.includes(o.status)));
+    const list = rows.filter(o => view === 'all' || (view === 'open') === OPEN.includes(o.status));
     if (!list.length) { box.innerHTML = '<div class="empty">' + (view === 'done' ? 'No results yet.' : 'Nothing here yet. Send a request on the left.') + '</div>'; return; }
     list.forEach((o, n) => {
       const d = document.createElement('div'); d.className = 'ord wrap' + (o.id === fresh ? ' on' : ''); d.style.setProperty('--n', n);
-      d.innerHTML = '<span class="chip pri ' + o.pri.toLowerCase() + '"></span><span class="who"><b></b><small></small></span><span class="exam"></span><span class="chip st-' + o.status + '"></span><span class="when"></span>';
+      d.innerHTML = '<span class="chip pri ' + (o.priCls || o.pri.toLowerCase()) + '"></span><span class="who"><b></b><small></small></span><span class="exam"></span><span class="chip st-' + o.status + '"></span><span class="when"></span>';
       d.querySelector('.pri').textContent = o.pri; d.querySelector('b').textContent = o.name; d.querySelector('small').textContent = o.id + '  ·  ' + o.mrn;
       d.querySelector('.exam').textContent = o.exam.replace('\n', ' '); d.querySelector('.st-' + o.status).textContent = o.status; d.querySelector('.when').textContent = o.clock;
       if (o.status === 'Rejected') { const r = document.createElement('div'); r.className = 'result bad'; r.textContent = 'Radiology sent it back: ' + (o.note || 'no reason given'); d.append(r); }
@@ -81,13 +137,13 @@
         const at = STEPS.indexOf(o.status), s = document.createElement('div'); s.className = 'steps';
         STEPS.forEach((t, i) => { if (i) { const l = document.createElement('i'); if (i <= at) l.className = 'done'; s.append(l); } const sp = document.createElement('span'); sp.textContent = t; if (i <= at) sp.className = 'done'; s.append(sp); });
         d.append(s);
-        if (o.status === 'Reported') { const r = document.createElement('div'); r.className = 'result'; r.textContent = 'Impression: ' + (o.impression || '(empty)'); d.append(r); }
+        if (o.status === 'Reported') { const r = document.createElement('div'); r.className = 'result'; r.textContent = (live ? 'Reading: ' : 'Impression: ') + (o.impression || '(empty)'); d.append(r); }
       }
       box.append(d);
     });
   }
   render();
-  addEventListener('storage', () => render());       // another tab (Radiology) changed an order
+  if (!live) addEventListener('storage', () => render());       // another tab (Radiology) changed an order
 })();
 </script>
 </body>

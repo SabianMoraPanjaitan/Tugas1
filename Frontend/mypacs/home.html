@@ -68,7 +68,7 @@
   <div class="rule" style="left:139.5rem;top:74.8rem;width:40.2rem;height:.15rem"></div>
   <span class="t xl" style="left:139.5rem;top:78.75rem;font-size:2rem">Patient Name</span>
   <span class="t" id="p-name" style="left:139.5rem;top:81.8rem;font-size:3.5rem"></span>
-  <span class="t xl" style="left:139.5rem;top:86.55rem;font-size:2rem">MRN</span>
+  <span class="t xl" id="l-mrn" style="left:139.5rem;top:86.55rem;font-size:2rem">MRN</span>
   <span class="t" id="p-mrn" style="left:139.5rem;top:89.3rem;font-size:3rem"></span>
   <div class="thumbs" id="thumbs"></div>
   <div class="hbar" id="hbar"></div>
@@ -85,6 +85,5 @@
 <script src="mockstore.js"></script>
 <script src="fx.js"></script>
 <script src="mypacs.js"></script>
-<script>document.querySelector('#n-orders').textContent = MockStore.orders().filter(o => o.status === 'Requested').length;</script>
 </body>
 </html>

@@ -18,16 +18,33 @@
 <script src="mockstore.js"></script>
 <script src="fx.js"></script>
 <script>
-(function () {
-  const grid = document.querySelector('#grid'), st = MockStore.stats(), fresh = MockStore.orders().filter(o => o.status === 'Requested').length;
+(async function () {
+  const grid = document.querySelector('#grid'), live = await MyApi.ready;
+  // The backend keeps no unit on a request; only the surgery role (dokter_bedah) may order exams, so its
+  // requests count for Bedah. The other units stay on demo data. Radiology's count = requests imaged, not yet read.
+  const LIVE_UNITS = ['bedah'];
+  let st = MockStore.stats(), fresh = MockStore.orders().filter(o => o.status === 'Requested').length, open = null;
+  if (live) {
+    try {
+      const orders = await MyApi.get('orders');
+      fresh = orders.filter(o => o.status === 'requested').length;
+      open = fresh;                                   // as in the demo: not imaged yet
+      st = { Unread: orders.filter(o => o.status === 'imaged').length };
+    } catch (_) { fresh = null; }
+  }
   const tile = (href, cls, name, local, n, what) => {
     const a = document.createElement('a'); a.className = 'unit lit ' + cls; a.href = href;
     a.innerHTML = '<b></b><small></small><span class="n">0</span><span class="what"></span><span class="go" aria-hidden="true">›</span>';
     a.querySelector('b').textContent = name; a.querySelector('small').textContent = local; a.querySelector('.what').textContent = what;
-    grid.append(a); MyFx.count(a.querySelector('.n'), n, 2);
+    grid.append(a); if (n === null) a.querySelector('.n').textContent = '-'; else MyFx.count(a.querySelector('.n'), n, 2);
   };
-  tile('home.html', 'rad', 'Radiology', 'Radiologi · PACS', st.Unread, 'unread studies · ' + fresh + ' new orders');
-  MockStore.installations().forEach(i => tile('dept.html?d=' + i.id, '', i.name, i.local, i.open, i.open === 1 ? 'open request' : 'open requests'));
+  if (live && fresh === null) tile('home.html', 'rad', 'Radiology', 'Radiologi · PACS', null, 'requests could not be loaded');
+  else if (live) tile('home.html', 'rad', 'Radiology', 'Radiologi · PACS', st.Unread, 'waiting to be read · ' + fresh + ' new orders');
+  else tile('home.html', 'rad', 'Radiology', 'Radiologi · PACS', st.Unread, 'unread studies · ' + fresh + ' new orders');
+  MockStore.installations().forEach(i => {
+    const real = live && LIVE_UNITS.includes(i.id), n = real ? open : i.open;
+    tile('dept.html?d=' + i.id, '', i.name, i.local + (live && !real ? ' · demo' : ''), n, n === 1 ? 'open request' : 'open requests');
+  });
 })();
 </script>
 </body>

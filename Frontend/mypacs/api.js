@@ -10,6 +10,7 @@
 //   MyApi.fetchRaw(path, init) -> the Response itself, with the login attached (for binary files).
 //   MyApi.user()               -> Promise of the logged-in user ({username, role, full_name}) or null.
 //   MyApi.login(u, p) / MyApi.logout()
+//   MyApi.tabSession()         -> this tab gets its own login as the browser's cookie account (POST /api/auth/tab-session)
 //
 // Login: the backend sets an HttpOnly cookie on login and also returns a token. This tab keeps the token
 // in sessionStorage under the same key the older pages use ('simrs_tab_token'), so a login on either the
@@ -54,6 +55,8 @@
     async user() { if (!(await ready)) return null; try { return await call('GET', 'auth/me'); } catch (_) { return null; } },
     async login(username, password) { const u = await call('POST', 'auth/login', { username, password }); setToken(u.token); return u; },
     async logout() { try { await call('POST', 'auth/logout'); } catch (_) {} setToken(''); },
+    // a separate login for this tab, as the account the browser's cookie is signed in with
+    async tabSession() { const u = await call('POST', 'auth/tab-session'); setToken(u.token); return u; },
   };
   ready.then(v => { api.live = v; });
   root.MyApi = api;
