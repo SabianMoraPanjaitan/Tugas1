@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Order inbox</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="flow.css">
+</head>
+<body class="flow">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <a class="tc serif brand" href="home.html" style="left:19.75rem;top:7.1rem;font-size:4.5rem">MyPACS</a>
+  <h1 class="t" style="left:34.6rem;top:7.1rem">Order inbox</h1>
+  <p class="t sub" style="left:34.6rem;top:12.6rem">Radiology · requests from the other installations</p>
+  <a class="pill-link" href="installations.html" style="left:126rem">Installations</a>
+  <a class="pill-link" href="home.html" style="left:149rem"><span aria-hidden="true">‹</span> Worklist</a>
+  <a class="avatar" href="settings.html" title="Account settings" style="left:173.9rem;top:2.1rem"><img src="assets/avatar.png" alt="Account settings"></a>
+
+  <section class="card lit" style="left:9rem;width:112rem">
+    <div class="head"><div class="seg" id="filter"></div><div class="seg" id="unit"></div></div>
+    <div class="line"></div>
+    <div class="scroll" id="list"></div>
+  </section>
+
+  <aside class="card lit" id="detail" style="left:125rem;width:58rem"></aside>
+</main>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script>
+(function () {
+  const $ = s => document.querySelector(s), params = new URLSearchParams(location.search);
+  const VIEWS = [['new', 'New', ['Requested']], ['todo', 'To image', ['Accepted']], ['done', 'Imaged', ['Imaged', 'Reported']], ['all', 'All', null]];
+  let view = params.get('view') || 'new', unit = '', sel = params.get('order') || '';
+  if (sel) view = 'all';
+  function chips() {
+    const all = MockStore.orders(), f = $('#filter'), u = $('#unit'); f.textContent = ''; u.textContent = '';
+    VIEWS.forEach(([v, label, st]) => { const b = document.createElement('button'); b.dataset.v = v; b.setAttribute('aria-pressed', v === view);
+      const n = all.filter(o => !st || st.includes(o.status)).length; b.textContent = label + '  ' + n; f.append(b); });
+    [['', 'All units'], ...MockStore.installations().map(i => [i.id, i.local])].forEach(([v, label]) => { const b = document.createElement('button'); b.dataset.v = v; b.textContent = label; b.setAttribute('aria-pressed', v === unit); u.append(b); });
+  }
+  $('#filter').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { view = b.dataset.v; render(); } });
+  $('#unit').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { unit = b.dataset.v; render(); } });
+  const RANK = { STAT: 0, URGENT: 1, ROUTINE: 2 };
+  function render(keep) {
+    chips();
+    const st = VIEWS.find(v => v[0] === view)[2];
+    const list = MockStore.orders().filter(o => (!st || st.includes(o.status)) && (!unit || o.dept === unit)).sort((a, b) => RANK[a.pri] - RANK[b.pri] || b.time.localeCompare(a.time));
+    const box = $('#list'); box.textContent = '';
+    if (!list.some(o => o.id === sel)) sel = list.length ? list[0].id : '';
+    if (!list.length) box.innerHTML = '<div class="empty">No orders here.</div>';
+    list.forEach((o, n) => {
+      const b = document.createElement('button'); b.className = 'ord' + (o.id === sel ? ' on' : ''); if (!keep) b.style.setProperty('--n', n); else b.style.animation = 'none';
+      b.innerHTML = '<span class="chip pri ' + o.pri.toLowerCase() + '"></span><span class="who"><b></b><small></small></span><span class="exam"></span><span class="chip inst"></span><span class="chip st-' + o.status + '"></span><span class="when"></span>';
+      b.querySelector('.pri').textContent = o.pri; b.querySelector('b').textContent = o.name; b.querySelector('small').textContent = o.id + '  ·  ' + o.mrn + '  ·  ' + o.ageSex;
+      b.querySelector('.exam').textContent = o.exam.replace('\n', ' '); b.querySelector('.inst').textContent = o.inst.local; b.querySelector('.st-' + o.status).textContent = o.status; b.querySelector('.when').textContent = o.clock;
+      b.addEventListener('click', () => { sel = o.id; render(true); });
+      box.append(b);
+    });
+    detail();
+  }
+  function detail() {
+    const box = $('#detail'), o = sel && MockStore.order(sel);
+    if (!o) { box.innerHTML = '<h2>Order</h2><div class="line"></div><div class="empty">Pick an order on the left.</div>'; return; }
+    box.innerHTML = '<div class="head"><h2></h2><span class="chip st-' + o.status + '">' + o.status + '</span></div><div class="line"></div>'
+      + '<div><div class="label">Patient</div><div class="value" id="x-name" style="font-size:3.4rem"></div></div>'
+      + '<div class="kvs"><span>MRN</span><b id="x-mrn"></b><span>Age / sex</span><b id="x-age"></b><span>From</span><b id="x-from"></b><span>Examination</span><b id="x-exam"></b><span>Priority</span><b id="x-pri"></b><span>Referrer</span><b id="x-ref"></b><span>Sent</span><b id="x-when"></b></div>'
+      + '<div><div class="label">Clinical history and question</div><div class="value" id="x-hist"></div></div>'
+      + '<div><div class="label">Supporting documents</div><div class="files" id="x-files"></div></div><div style="flex:1"></div><div id="x-act" style="display:flex;flex-direction:column;gap:1.4rem"></div>';
+    const put = (id, v) => box.querySelector(id).textContent = v;
+    box.querySelector('h2').textContent = o.id; put('#x-name', o.name); put('#x-mrn', o.mrn); put('#x-age', o.ageSex); put('#x-from', o.inst.name + ' (' + o.inst.local + ')');
+    put('#x-exam', o.exam.replace('\n', ' ')); put('#x-pri', o.pri); put('#x-ref', o.referrer); put('#x-when', o.date + ', ' + o.clock); put('#x-hist', o.history);
+    box.querySelectorAll('.kvs b').forEach(b => b.style.fontWeight = 400);
+    const files = box.querySelector('#x-files');
+    if (!o.files || !o.files.length) files.innerHTML = '<span class="label">None attached.</span>';
+    else o.files.forEach(f => { const c = document.createElement('span'); c.className = 'chip'; c.textContent = f.name; files.append(c); });
+    const act = box.querySelector('#x-act'), btn = (cls, text, fn, href) => { const b = document.createElement(href ? 'a' : 'button'); b.className = 'pbtn ' + cls; b.textContent = text; if (href) b.href = href; else b.addEventListener('click', fn); act.append(b); return b; };
+    if (o.status === 'Requested') {
+      btn('solid', 'Accept order', () => { MockStore.updateOrder(o.id, { status: 'Accepted' }); view = 'todo'; MyFx.toast(o.id + ' accepted'); render(); });
+      btn('ghost danger', 'Send back', () => {
+        act.innerHTML = '<input type="text" id="x-why" placeholder="Reason for sending it back">'; const i = act.querySelector('input'); i.focus();
+        btn('solid', 'Confirm', () => { MockStore.updateOrder(o.id, { status: 'Rejected', note: i.value.trim() }); MyFx.toast(o.id + ' sent back'); render(); });
+        btn('ghost', 'Cancel', detail);
+      });
+    } else if (o.status === 'Accepted') btn('solid', 'Upload images', null, 'upload.html?order=' + o.id);
+    else if (o.study) btn('solid', o.status === 'Reported' ? 'Open report' : 'Open study', null, 'viewer.html?mrn=' + encodeURIComponent(o.study) + (o.status === 'Reported' ? '&report=1' : ''));
+    else if (o.status === 'Rejected') { const r = document.createElement('div'); r.className = 'result bad'; r.textContent = 'Sent back: ' + (o.note || 'no reason given'); act.append(r); }
+  }
+  render();
+  addEventListener('storage', () => render(true));
+})();
+</script>
+</body>
+</html>

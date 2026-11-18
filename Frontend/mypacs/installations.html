@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Installations</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="flow.css">
+</head>
+<body class="flow">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <a class="tc serif brand" href="index.html" style="left:19.75rem;top:7.1rem;font-size:4.5rem">MyPACS</a>
+  <h1 class="t" style="left:34.6rem;top:7.1rem">Installations</h1>
+  <p class="t sub" style="left:34.6rem;top:12.6rem">Choose the unit you are working in.</p>
+  <div class="grid" id="grid"></div>
+</main>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script>
+(function () {
+  const grid = document.querySelector('#grid'), st = MockStore.stats(), fresh = MockStore.orders().filter(o => o.status === 'Requested').length;
+  const tile = (href, cls, name, local, n, what) => {
+    const a = document.createElement('a'); a.className = 'unit lit ' + cls; a.href = href;
+    a.innerHTML = '<b></b><small></small><span class="n">0</span><span class="what"></span><span class="go" aria-hidden="true">›</span>';
+    a.querySelector('b').textContent = name; a.querySelector('small').textContent = local; a.querySelector('.what').textContent = what;
+    grid.append(a); MyFx.count(a.querySelector('.n'), n, 2);
+  };
+  tile('home.html', 'rad', 'Radiology', 'Radiologi · PACS', st.Unread, 'unread studies · ' + fresh + ' new orders');
+  MockStore.installations().forEach(i => tile('dept.html?d=' + i.id, '', i.name, i.local, i.open, i.open === 1 ? 'open request' : 'open requests'));
+})();
+</script>
+</body>
+</html>

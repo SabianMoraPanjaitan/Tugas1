@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Home</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<div class="home" id="home" data-state="">
+  <div class="bg"><img src="assets/bg-home.png" alt=""></div>
+
+  <!-- glass panels -->
+  <div class="panel lit" style="left:9.3rem;top:21rem;width:116rem;height:33.5rem"></div>
+  <div class="panel lit" style="left:10.1rem;top:63.1rem;width:116rem;height:92.8rem;background:var(--glass-5)"></div>
+  <div class="panel lit" style="left:133.8rem;top:20.4rem;width:51.6rem;height:34.1rem"></div>
+  <div class="panel lit" style="left:133.8rem;top:63.1rem;width:51.6rem;height:92.8rem"></div>
+
+  <!-- header -->
+  <a class="tc serif brand" href="index.html" style="left:19.75rem;top:11.6rem;font-size:4.5rem">MyPACS</a>
+  <a class="pill-link" href="orders.html" style="left:124.5rem;top:7.3rem">Orders <span class="badge" id="n-orders" style="min-width:3.2rem;height:3.2rem;padding:0 .9rem;border-radius:1.6rem;background:var(--stat);font:600 1.7rem var(--mono);display:inline-flex;align-items:center;justify-content:center">0</span></a>
+  <a class="pill-link" href="upload.html" style="left:144.5rem;top:7.3rem">Upload</a>
+  <a class="pill-link" href="installations.html" style="left:157.5rem;top:7.3rem">Units</a>
+  <a class="avatar" href="settings.html" title="Account settings"><img src="assets/avatar.png" alt="Account settings"></a>
+
+  <!-- reading queue: the numbers are buttons that filter the worklist -->
+  <button class="t lt" data-state="" style="left:16.5rem;top:37.6rem;width:21.4rem;white-space:normal;text-align:left;font-size:4.8628rem" title="Show unread and drafts">Reading Queue</button>
+  <button class="hit" data-state="Unread" style="left:41.8rem;top:26.6rem;width:34.2rem;height:22.4rem" aria-label="Show unread studies"></button>
+  <div class="tile lit" style="left:41.8rem;top:26.6rem;width:34.2rem;height:22.4rem;box-shadow:0 0 2.5rem .1rem rgba(255,255,255,.25)"></div>
+  <div class="tile lit" style="left:78.8rem;top:26.6rem;width:34.2rem;height:22.4rem"></div>
+  <span class="t mono" data-g="Unread" id="n-unread" style="left:46.2rem;top:34.25rem;font-size:9.0559rem">0</span>
+  <span class="t lt" data-g="Unread" style="left:45.5rem;top:42.85rem;font-size:4.0369rem">Active Unread</span>
+  <span class="tc mono" data-g="Draft" id="n-draft" style="left:87.05rem;top:33.35rem;font-size:6rem">00</span>
+  <span class="t lt" data-g="Draft" style="left:92.7rem;top:34rem;font-size:4rem">Drafts</span>
+  <span class="tc mono" data-g="Final" id="n-final" style="left:87.167rem;top:42.55rem;font-size:6rem">00</span>
+  <span class="t lt" data-g="Final" style="left:92.7rem;top:43.25rem;font-size:4rem">Finalized</span>
+  <button class="hit" data-state="Draft" style="left:78.8rem;top:26.6rem;width:34.2rem;height:11.2rem;border-radius:5rem 5rem 0 0" aria-label="Show drafts"></button>
+  <button class="hit" data-state="Final" style="left:78.8rem;top:37.8rem;width:34.2rem;height:11.2rem;border-radius:0 0 5rem 5rem" aria-label="Show finalized studies"></button>
+  <i class="dot" style="top:34rem"></i><i class="dot" style="top:36.6rem"></i><i class="dot on" style="top:39.2rem"></i>
+
+  <!-- modalities -->
+  <h2 class="t" style="left:138.1rem;top:26.55rem;font-size:5rem">Modalities</h2>
+  <div class="rule" style="left:138.1rem;top:30.5rem;width:41.9rem;height:.1rem"></div>
+  <div id="mods"></div>
+  <div class="rule" style="left:168.988rem;top:32.899rem;width:.2rem;height:18.3rem;background:var(--line-soft)"></div>
+
+  <!-- worklist -->
+  <h2 class="t" style="left:16.5rem;top:70.55rem;font-size:5rem">Worklist</h2>
+  <label class="search" id="search">
+    <img src="assets/search.svg" alt="Search">
+    <input id="q" type="search" placeholder="Search name or MRN" aria-label="Search the worklist">
+  </label>
+  <div class="tabs" id="tabs" role="tablist">
+    <div class="sel"></div>
+    <button role="tab" data-m="" style="left:4.75rem">All</button>
+    <button role="tab" data-m="CT" style="left:12.85rem">CT</button>
+    <button role="tab" data-m="MRI" style="left:22.05rem">MRI</button>
+    <button role="tab" data-m="X-Ray" style="left:33.6rem">X-Ray</button>
+    <button role="tab" data-m="USG" style="left:45.2rem">USG</button>
+    <button role="tab" data-m="PET" style="left:54.9rem">PET</button>
+  </div>
+  <div class="rule" style="left:16.5rem;top:76.075rem;width:104rem;height:.15rem"></div>
+  <div class="wl" id="wl" tabindex="0" aria-label="Worklist"><div class="wl-in" id="wl-in"></div></div>
+  <div class="vbar" id="vbar"></div>
+
+  <!-- preview -->
+  <h2 class="t" style="left:139.5rem;top:70.45rem;font-size:5rem">Preview</h2>
+  <div class="rule" style="left:139.5rem;top:74.8rem;width:40.2rem;height:.15rem"></div>
+  <span class="t xl" style="left:139.5rem;top:78.75rem;font-size:2rem">Patient Name</span>
+  <span class="t" id="p-name" style="left:139.5rem;top:81.8rem;font-size:3.5rem"></span>
+  <span class="t xl" style="left:139.5rem;top:86.55rem;font-size:2rem">MRN</span>
+  <span class="t" id="p-mrn" style="left:139.5rem;top:89.3rem;font-size:3rem"></span>
+  <div class="thumbs" id="thumbs"></div>
+  <div class="hbar" id="hbar"></div>
+  <span class="t xl" style="left:139.5rem;top:115.15rem;font-size:2rem">Details</span>
+  <span class="t" id="p-series" style="left:139.5rem;top:117.65rem;font-size:2.5rem"></span>
+  <span class="t xl" style="left:139.5rem;top:121.75rem;font-size:2rem">Clinical History</span>
+  <span class="t" id="p-hist" style="left:139.5rem;top:126.1rem;width:37.9rem;white-space:normal;font-size:2.5rem"></span>
+  <span class="t xl" style="left:139.5rem;top:131.75rem;font-size:2rem">Referrer</span>
+  <span class="t" id="p-ref" style="left:139.5rem;top:134.9rem;font-size:3rem"></span>
+  <a class="pbtn solid" id="b-view" href="viewer.html" style="top:139.2rem">Full View</a>
+  <a class="pbtn ghost" id="b-edit" href="viewer.html" style="top:146.2rem">Edit Report</a>
+</div>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script src="mypacs.js"></script>
+<script>document.querySelector('#n-orders').textContent = MockStore.orders().filter(o => o.status === 'Requested').length;</script>
+</body>
+</html>

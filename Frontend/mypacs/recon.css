@@ -1,0 +1,85 @@
+/* 3D reconstruction page. Not in the Figma file; drawn in the same style as the viewer. 1rem = 10 Figma px. */
+.recon .vbar-top{gap:1.8rem}
+.recon .vbar-top .seg button{font-size:1.9rem;padding:0 1.8rem;white-space:nowrap}
+.recon .vbar-top .anon{font-size:1.7rem;font-weight:400;background:rgba(120,255,200,.18)}
+.recon .seg button{color:inherit}
+
+/* slices */
+.mpr{left:6rem;width:30rem;padding:2.6rem 2rem 2rem;display:flex;flex-direction:column;gap:1.2rem}
+.mpr h2{font-size:3.2rem;padding-left:.6rem}
+.pane{flex:1;min-height:0;display:flex;flex-direction:column;gap:.6rem}
+.pane .cap{display:flex;justify-content:space-between;align-items:baseline;padding:0 .6rem;font-size:1.7rem}
+.pane .cap b{font-weight:400}
+.pane .cap span{font-family:var(--mono);font-size:1.4rem;opacity:.8}
+.pane .box{flex:1;min-height:0;border-radius:1.6rem;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:crosshair;touch-action:none}
+.pane .fit2{position:relative;flex:none}
+.pane canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pane i{position:absolute;background:rgba(159,245,216,.75);pointer-events:none}
+.pane i.h{left:0;right:0;height:1px} .pane i.v{top:0;bottom:0;width:1px}
+.pane em{position:absolute;font:normal 1.2rem var(--mono);color:rgba(255,255,255,.6);pointer-events:none}
+.pane em.l{left:.5rem;top:50%;translate:0 -50%} .pane em.r{right:.5rem;top:50%;translate:0 -50%}
+.pane em.t{top:.3rem;left:50%;translate:-50% 0} .pane em.b{bottom:.3rem;left:50%;translate:-50% 0}
+
+/* viewport */
+.vp{left:39rem;width:93rem;height:78rem!important;background:#000!important;overflow:hidden;touch-action:none;user-select:none;cursor:grab}
+.vp canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.vp .ov{position:absolute;font-family:var(--mono);font-size:1.5rem;line-height:1.5;color:rgba(255,255,255,.82);pointer-events:none;white-space:pre}
+.vp svg.draw{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.vp svg.draw line{stroke:#9ff5d8;stroke-width:2;stroke-linecap:round}
+.vp svg.draw line.box{stroke:rgba(255,255,255,.45);stroke-width:1;stroke-dasharray:5 5}
+.vp svg.draw line.dim{stroke:#fff;stroke-width:1.5}
+.vp svg.draw circle{fill:#9ff5d8;stroke:#000;stroke-width:1}
+.vp svg.draw circle.ring{fill:none;stroke:#fff;stroke-width:1.5}
+.vp svg.draw text{fill:#9ff5d8;font-family:var(--mono);font-size:14px;paint-order:stroke;stroke:#000;stroke-width:3px;text-anchor:middle}
+.vp svg.draw text.dim{fill:#fff}
+.loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;font-size:2rem;background:#000;transition:opacity .5s}
+.loading.off{opacity:0;pointer-events:none}
+.loading i{width:5rem;height:5rem;border-radius:50%;border:.3rem solid rgba(255,255,255,.2);border-top-color:#9ff5d8;animation:reconspin 1s linear infinite}
+@keyframes reconspin{to{rotate:360deg}}
+
+.recon .dock{left:47.5rem;width:76rem}
+
+/* side panel */
+.side{left:135rem;width:51rem;padding:2.4rem 3rem;display:flex;flex-direction:column;gap:1.4rem;overflow:hidden}
+.side .rtabs{align-self:flex-start}
+.side .rtabs button{padding:0 2.6rem;font-size:2.1rem}
+.side .tab{flex:1;min-height:0;display:flex;flex-direction:column;gap:1.15rem}
+.side .tab[hidden]{display:none}
+.side .line{height:.15rem;background:rgba(255,255,255,.6);flex:none;margin:.3rem 0}
+.side .label{font-size:1.7rem}
+.size .dims{display:flex;gap:2.4rem;margin:.4rem 0 .6rem}
+.size .dims b{display:block;font-weight:400;font-size:4.6rem;line-height:1;font-variant-numeric:tabular-nums}
+.size .dims small{font-size:1.6rem;font-weight:200}
+.ctl{display:flex;align-items:center;gap:1.4rem;min-height:4.2rem}
+.ctl>.label{flex:0 0 13rem}
+.ctl .seg{height:4.2rem}
+.ctl .seg button{font-size:1.7rem;padding:0 1.3rem}
+.ctl output{flex:0 0 10rem;white-space:nowrap;text-align:right;font-family:var(--mono);font-size:1.5rem}
+.ctl[hidden]{display:none}
+.ctl input[type=range]{flex:1;min-width:0;height:2.4rem;appearance:none;-webkit-appearance:none;background:none;cursor:pointer;--k:0%}
+.ctl input[type=range]::-webkit-slider-runnable-track{height:.6rem;border-radius:.3rem;background:linear-gradient(90deg,#9ff5d8 var(--k),rgba(255,255,255,.18) var(--k))}
+.ctl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:2.2rem;height:2.2rem;margin-top:-.8rem;border-radius:50%;background:#fff;box-shadow:0 0 1.4rem rgba(255,255,255,.6);transition:scale .15s}
+.ctl input[type=range]:active::-webkit-slider-thumb{scale:1.2}
+.ctl input[type=range]::-moz-range-track{height:.6rem;border-radius:.3rem;background:rgba(255,255,255,.18)}
+.ctl input[type=range]::-moz-range-thumb{width:2.2rem;height:2.2rem;border:0;border-radius:50%;background:#fff}
+.probe{display:flex;flex-direction:column;gap:.3rem}
+.kv{display:flex;justify-content:space-between;gap:2rem;font-size:1.7rem}
+.kv span{font-weight:200} .kv b{font-family:var(--mono);font-weight:400;font-size:1.5rem;text-align:right}
+.mlist{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:.5rem}
+.mlist .none{font-size:1.6rem;font-weight:200;opacity:.8}
+.mlist .m{display:flex;justify-content:space-between;align-items:center;padding:.5rem 1.4rem;border-radius:1.2rem;background:var(--pill);font-size:1.7rem}
+.mlist .m b{font-family:var(--mono);font-weight:600}
+.tags{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent;padding-right:1rem}
+.tags h3{font-weight:500;font-size:1.9rem;margin:1.4rem 0 .5rem} .tags h3:first-child{margin-top:0}
+.tags .kv{padding:.45rem 0;border-bottom:.1rem solid rgba(255,255,255,.14)}
+.tags .kv b{max-width:28rem;overflow-wrap:anywhere}
+.tags .kv b.blank{opacity:.5;font-family:var(--sans)}
+.credit{font-size:1.4rem;font-weight:200;opacity:.8}
+
+/* embedded as the 3D pane of the viewer: only the viewport, filling the frame */
+html.embed{font-size:8px!important}
+.embed .backdrop,.embed .stage>*:not(.vp){display:none!important}
+.embed .stage{position:fixed;inset:0;left:0;top:0;width:auto;height:auto;transform:none}
+.embed .vp{left:0;top:0;width:100%;height:100%!important;border-radius:0;box-shadow:none;animation:none}
+.embed .vp .ov{font-size:11px}
+.embed #ov-tl,.embed #ov-bl{display:none}
