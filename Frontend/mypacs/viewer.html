@@ -5,6 +5,7 @@
 <title>MyPACS — Viewer</title>
 <link rel="stylesheet" href="vendor/fonts/fonts.css">
 <link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="viewer.css">
+<script src="fx-head.js"></script>
 </head>
 <body class="viewer real">
 <div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
@@ -75,6 +76,10 @@
     <div class="tab" data-tab="report">
       <div><div class="label">Clinical History</div><div class="value" id="r-hist"></div></div>
       <div><div class="label">Referrer</div><div class="value" id="r-ref"></div></div>
+      <div class="icdrow">
+        <label><span class="label">ICD-10</span><input type="text" id="r-icd" placeholder="Code" autocomplete="off" spellcheck="false" maxlength="32"></label>
+        <label><span class="label">Diagnosis</span><input type="text" id="r-dx" placeholder="Diagnosis for the code" autocomplete="off" maxlength="500"></label>
+      </div>
       <div class="label">Findings</div>
       <textarea id="r-find" placeholder="Describe the findings…"></textarea>
       <div class="label">Impression</div>

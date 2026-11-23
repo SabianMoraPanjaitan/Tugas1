@@ -125,10 +125,11 @@ body.signin{background:var(--sage)}
 .row .pri.stat{left:4.7rem;width:10.5984rem;height:6.2657rem;border-radius:3.3328rem;background:var(--stat);
   box-shadow:0 0 1.3331rem .0667rem rgba(255,255,255,.25);font-family:var(--mono);font-weight:600;font-size:2.6663rem}
 .row .c{position:absolute;transform:translate(-50%,-50%);line-height:normal;white-space:nowrap;text-align:center}
-.row .name{left:28.869rem;top:calc(50% - 1.274rem);font-size:3.1637rem}
+.row .name{left:28.869rem;top:calc(50% - 1.274rem);font-size:3.1637rem;max-width:22rem;overflow:hidden;text-overflow:ellipsis}
 .row .mrn{left:24.59rem;top:calc(50% + 2.405rem);font-size:1.9773rem;font-weight:200}
 .row .age{left:35.94rem;top:calc(50% + 2.405rem);font-size:1.9773rem;font-weight:200}
-.row .exam{left:51.995rem;top:calc(50% + .05rem);font-size:2.7094rem;white-space:pre-line}
+.row .exam{left:51.995rem;top:calc(50% + .05rem);font-size:2.7094rem;white-space:pre-line;max-width:21rem;overflow:hidden;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .row .date{left:74.16rem;top:calc(50% - 1.39rem);font-size:2.4191rem}
 .row .time{left:74.13rem;top:calc(50% + 1.61rem);font-size:2.4191rem}
 .row .state{left:94.408rem;top:calc(50% + .25rem);font-size:2.7094rem}

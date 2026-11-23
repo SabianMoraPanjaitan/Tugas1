@@ -18,8 +18,9 @@
   const REPORT_ROLES = ['radiolog', 'admin'];                     // backend: REPORTERS
   const IMP = '\n\nImpression: ';                                  // the backend keeps one reading text ("finding")
   const joinFinding = (f, imp) => imp ? f + IMP + imp : f;
-  const splitFinding = (txt, diag) => { txt = txt || ''; const i = txt.indexOf(IMP); return i < 0 ? [txt, diag || ''] : [txt.slice(0, i), txt.slice(i + IMP.length)]; };
-  // No backend route keeps a draft, so drafts stay in this browser (localStorage), per study.
+  const splitFinding = txt => { txt = txt || ''; const i = txt.indexOf(IMP); return i < 0 ? [txt, ''] : [txt.slice(0, i), txt.slice(i + IMP.length)]; };
+  // Drafts are saved on the server (POST /api/studies/{id}/reading). This browser keeps a copy only when a save
+  // could not reach the server; that copy wins until the next save that does, which removes it.
   const DKEY = id => 'mypacs.viewer.draft.' + id;
   const getDraft = id => { try { return JSON.parse(localStorage.getItem(DKEY(id)) || 'null'); } catch (_) { return null; } };
   const putDraft = (id, d) => { try { localStorage.setItem(DKEY(id), JSON.stringify(d)); return true; } catch (_) { return false; } };
@@ -30,17 +31,26 @@
     if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
     return a;
   }
+  // the reading shown for a study: the sent one; else this browser's unsaved copy, else the server's draft; else nothing
+  function readingOf(a) {
+    if (a.sent) return { icd10: a.icd10 || '', diagnosis: a.diagnosis || '', text: a.finding || '', state: 'Final' };
+    const l = getDraft(a.id), d = a.draft;
+    if (l) return { icd10: l.icd10 || '', diagnosis: l.diagnosis || '', text: joinFinding(l.findings || '', l.impression || ''), state: 'Draft', local: true };
+    if (d && d.finding != null) return { icd10: d.icd10 || '', diagnosis: d.diagnosis || '', text: d.finding || '', state: 'Draft' };
+    if (d) return { icd10: '', diagnosis: '', text: '', state: 'Draft' };        // other roles only learn that a draft exists
+    return { icd10: '', diagnosis: '', text: '', state: 'Unread' };
+  }
   // a backend study (GET /api/studies) -> the fields this page shows; "-" where the backend has nothing
   function view(a) {
     const sex = a.gender === 'Perempuan' ? 'F' : a.gender === 'Laki-laki' ? 'M' : '-', age = ageOf(a.birthDate), d = new Date(a.created), ok = a.created && !isNaN(d);
-    const pri = orderPri[a.order_id] || '-', draft = a.sent ? null : getDraft(a.id);
-    const [findings, impression] = a.sent ? splitFinding(a.finding, a.diagnosis) : draft ? [draft.findings || '', draft.impression || ''] : ['', ''];
+    const pri = orderPri[a.order_id] || '-', rd = readingOf(a), [findings, impression] = splitFinding(rd.text);
     return {
       api: a, mrn: a.id, pri, priClass: pri.toUpperCase() === 'CITO' ? 'stat' : pri === '-' ? '' : 'routine',
       name: a.name || '-', ageSex: (age === '' ? '-' : age) + ' / ' + sex, exam: a.description || a.modality || '-', mod: a.modality || '',
       date: ok ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-',
       clock: ok ? String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0') : '',
-      history: a.clinical || '-', referrer: a.doctor || '-', findings, impression, state: a.sent ? 'Final' : draft ? 'Draft' : 'Unread',
+      history: a.clinical || '-', referrer: a.doctor || '-', findings, impression, icd10: rd.icd10, diagnosis: rd.diagnosis,
+      state: rd.state, localDraft: !!rd.local,
     };
   }
   function note(text, kind) { const n = $('#r-note'); n.hidden = !text; n.textContent = text || ''; n.className = 'note' + (kind ? ' ' + kind : ''); }
@@ -62,7 +72,7 @@
   function blankStudy() {
     study = null; const pri = $('#v-pri'); pri.textContent = '-'; pri.className = 'pri';
     for (const id of ['#v-name', '#v-meta', '#v-exam', '#v-date', '#r-hist', '#r-ref']) $(id).textContent = '';
-    $('#r-find').value = $('#r-imp').value = ''; setState('Unread'); paintSeries();
+    paintReport({}); paintSeries();
   }
 
   // ================= study header and report =================
@@ -73,68 +83,109 @@
     MyFx.swap($('#v-name'), s.name); MyFx.swap($('#v-meta'), s.mrn + '   ·   ' + s.ageSex);
     MyFx.swap($('#v-exam'), s.exam.replace('\n', ' ')); MyFx.swap($('#v-date'), (s.date + '  ' + s.clock).trim());
     $('#r-hist').textContent = s.history; $('#r-ref').textContent = s.referrer;
-    $('#r-find').value = s.findings || ''; $('#r-imp').value = s.impression || '';
-    setState(s.state); document.title = 'MyPACS — ' + s.name;
+    paintReport(s); document.title = 'MyPACS — ' + s.name;
     if (s.api) { openArchive(s.api); return; }
     const want = s.recon || DEFAULT[s.mod] || '';
     paintSeries();
     if (want && metas.some(m => m.id === want)) openSeries(want);
     else { S.vol = null; S.seriesId = ''; paintSeries(); message('No images are stored for this demo study (' + s.mod + ').\nPick a sample series on the left, or open a DICOM folder.'); }
   }
+  // the report fields of a study (a live view or a MockStore row)
+  function paintReport(s) {
+    $('#r-icd').value = s.icd10 || ''; $('#r-dx').value = s.diagnosis || '';
+    $('#r-find').value = s.findings || ''; $('#r-imp').value = s.impression || '';
+    setState(s.state || 'Unread');
+  }
+  // what is typed now, in the backend's shape: Findings and Impression joined into its one "finding" text
+  const readingNow = () => ({ icd10: $('#r-icd').value.trim().toUpperCase(), diagnosis: $('#r-dx').value.trim(),
+    finding: joinFinding($('#r-find').value.trim(), $('#r-imp').value.trim()) });
+  // a report needs its ICD-10 code and diagnosis before it is finalized, as on the old PACS page
+  function missingCode() {
+    if (!$('#r-icd').value.trim()) { $('#r-icd').focus(); return 'Fill in the ICD-10 code first.'; }
+    if (!$('#r-dx').value.trim()) { $('#r-dx').focus(); return 'Fill in the diagnosis first.'; }
+    if (!$('#r-find').value.trim()) { $('#r-find').focus(); return 'Write the findings first.'; }
+    return '';
+  }
   function setState(st) {
     const e = $('#r-state'); e.textContent = st === 'Final' ? (live ? 'Sent' : 'Finalized') : st; e.dataset.s = st;
     const done = st === 'Final', ro = done || !canReport || !study;
-    $('#r-find').readOnly = $('#r-imp').readOnly = ro;
+    $('#r-find').readOnly = $('#r-imp').readOnly = $('#r-icd').readOnly = $('#r-dx').readOnly = ro;
     $('#r-final').textContent = done ? 'Reopen Report' : 'Finalize';
     $('#r-final').style.display = !canReport || !study || (live && done) ? 'none' : '';   // a sent study cannot be sent again
     $('#r-final').disabled = false;
     $('#r-draft').style.display = ro ? 'none' : '';
     note(!live ? '' : !canReport ? (sentNote() ? sentNote() + '\n' : '') + 'Read only: only a radiologist or admin can write the report.'
-      : done ? sentNote() : study ? 'Drafts are kept in this browser only. Finalize sends the report to SATUSEHAT.' : '', done && live ? 'ok' : '');
+      : done ? sentNote() : !study ? ''
+      : study.localDraft ? 'This draft is only in this browser: the server could not be reached. Save Draft again to keep it on the server.'
+      : 'Save Draft keeps the reading on the server. Finalize sends it to SATUSEHAT.',
+      done && live ? 'ok' : live && canReport && study && study.localDraft ? 'warn' : '');
   }
+  const offlineReading = () => ({ findings: $('#r-find').value, impression: $('#r-imp').value, icd10: $('#r-icd').value.trim().toUpperCase(), diagnosis: $('#r-dx').value.trim() });
   $('#r-draft').addEventListener('click', () => {
     if (!study || !canReport) return;
-    if (study.api) {
-      const ok = putDraft(study.api.id, { findings: $('#r-find').value, impression: $('#r-imp').value });
-      study.state = 'Draft'; study.findings = $('#r-find').value; study.impression = $('#r-imp').value;
-      setState('Draft'); MyFx.toast(ok ? 'Draft saved in this browser' : 'This browser would not keep the draft'); return;
-    }
-    study = MockStore.update(study.mrn, { findings: $('#r-find').value, impression: $('#r-imp').value, state: 'Draft' });
-    setState('Draft'); MyFx.toast('Draft saved');
+    if (study.api) { saveDraftLive(); return; }
+    study = MockStore.update(study.mrn, { ...offlineReading(), state: 'Draft' });
+    paintReport(study); MyFx.toast('Draft saved');
   });
   $('#r-final').addEventListener('click', () => {
     if (!study || !canReport) return;
     if (study.api) { finalizeLive(); return; }
     if (study.state === 'Final') { study = MockStore.update(study.mrn, { state: 'Draft' }); setState('Draft'); MyFx.toast('Report reopened as draft'); return; }
-    if (!$('#r-find').value.trim()) { $('#r-find').focus(); MyFx.toast('Write the findings first'); return; }
-    study = MockStore.update(study.mrn, { findings: $('#r-find').value, impression: $('#r-imp').value, state: 'Final' });
-    setState('Final'); MyFx.toast('Report finalized');
+    const miss = missingCode(); if (miss) { MyFx.toast(miss); return; }
+    study = MockStore.update(study.mrn, { ...offlineReading(), state: 'Final' });
+    paintReport(study); MyFx.toast('Report finalized');
   });
-  // Finalize = the old PACS page's "Kirim ke SATUSEHAT": POST /api/satusehat/send-study with the study and the reading.
-  // Only fields the backend already takes; the ICD-10 code is sent only if the study already has one.
+  // the study as the server has it now (after a 409: someone sent it meanwhile)
+  async function refresh(a) {
+    try { const n = (await MyApi.get('studies')).find(x => x.id === a.id); if (n) { Object.assign(a, n); a.draft = n.draft || null; } } catch (_) {}
+    if (study && study.api === a) { study = view(a); paintReport(study); }
+  }
+  // Save Draft = POST /api/studies/{id}/reading. If the server cannot be reached, this browser keeps a copy.
+  async function saveDraftLive() {
+    const a = study.api, body = readingNow(), btn = $('#r-draft');
+    btn.disabled = true;
+    try {
+      const s = await MyApi.post('studies/' + encodeURIComponent(a.id) + '/reading', body);
+      a.draft = (s && s.draft) || null; dropDraft(a.id);
+      if (study && study.api === a) { study = view(a); paintReport(study); MyFx.toast(a.draft ? 'Draft saved' : 'Draft cleared'); }
+    } catch (e) {
+      if (e.status === 409) { await refresh(a); if (study && study.api === a) note(e.detail || 'This study was already sent.', 'warn'); }
+      else if (e.status === 403) note('Only a radiologist or admin can save the report.', 'warn');
+      else if (e.status === 400) note(e.detail || 'The draft could not be saved.', 'warn');
+      else {
+        const [f, imp] = splitFinding(body.finding);
+        putDraft(a.id, { findings: f, impression: imp, icd10: body.icd10, diagnosis: body.diagnosis });
+        if (study && study.api === a) { study = view(a); paintReport(study); }
+        MyFx.toast('The server did not answer: the draft is kept in this browser');
+      }
+    } finally { btn.disabled = false; }
+  }
+  // Finalize = the old PACS page's "Kirim ke SATUSEHAT": POST /api/satusehat/send-study with the study and the reading,
+  // the same fields that page sends. The ICD-10 code and diagnosis are typed by the radiologist; none is filled in here.
   const errorText = r => { try { const i = r.issue && r.issue[0]; return (i && ((i.details && i.details.text) || i.diagnostics)) || (r.fault && r.fault.faultstring) || JSON.stringify(r).slice(0, 220); } catch (_) { return ''; } };
   async function finalizeLive() {
-    const a = study.api, f = $('#r-find').value.trim(), imp = $('#r-imp').value.trim();
-    if (!f) { $('#r-find').focus(); MyFx.toast('Write the findings first'); return; }
-    const body = { name: a.name || '', nik: a.nik || '', modality: a.modality || '', description: a.description || '', icd10: a.icd10 || '',
-      diagnosis: imp, finding: joinFinding(f, imp), instalasi: a.instalasi || 'Instalasi Radiologi', archive_id: a.id };
+    const a = study.api, miss = missingCode();
+    if (miss) { note(miss, 'warn'); MyFx.toast(miss); return; }
+    const rd = readingNow();
+    const body = { name: a.name || '', nik: a.nik || '', modality: a.modality || '', description: a.description || '', icd10: rd.icd10,
+      diagnosis: rd.diagnosis, finding: rd.finding, instalasi: a.instalasi || 'Instalasi Radiologi', archive_id: a.id };
     const btn = $('#r-final'); btn.disabled = true; btn.textContent = 'Sending…'; note('Sending to SATUSEHAT…');
     let r;
     try { r = await MyApi.post('satusehat/send-study', body); }
     catch (e) {
       if (!study || study.api !== a) return;
       btn.disabled = false; btn.textContent = 'Finalize';
-      if (e.status === 409) { a.sent = true; study = view(a); setState('Final'); }   // already sent from elsewhere
+      if (e.status === 409) await refresh(a);                       // already sent from elsewhere
       note(e.status === 403 ? 'Only a radiologist or admin can send the report.' : e.status === 409 ? e.detail : 'Could not send: ' + e.message, 'warn');
       return;
     }
     if (r && r.ok) {
-      Object.assign(a, { sent: true, icd10: body.icd10, diagnosis: body.diagnosis, finding: body.finding, imaging_study_id: r.imaging_study_id || '', diagnostic_report_id: r.diagnostic_report_id || '', reported_by: me ? me.username : '' });
+      Object.assign(a, { sent: true, draft: null, icd10: body.icd10, diagnosis: body.diagnosis, finding: body.finding, imaging_study_id: r.imaging_study_id || '', diagnostic_report_id: r.diagnostic_report_id || '', reported_by: me ? me.username : '' });
       dropDraft(a.id);
     }
     if (!study || study.api !== a) return;                          // moved to another study meanwhile
     if (r && r.ok) {
-      study = view(a); setState('Final');
+      study = view(a); paintReport(study);
       note('Sent to SATUSEHAT (' + (r.mode || '?') + ').\nImagingStudy/' + a.imaging_study_id + '\nDiagnosticReport/' + a.diagnostic_report_id, 'ok');
       MyFx.toast('Report sent to SATUSEHAT (' + (r.mode || '?') + ')');
     } else {

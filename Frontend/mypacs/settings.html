@@ -5,6 +5,7 @@
 <title>MyPACS — Account settings</title>
 <link rel="stylesheet" href="vendor/fonts/fonts.css">
 <link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css">
+<script src="fx-head.js"></script>
 </head>
 <body class="settings">
 <div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
@@ -77,7 +78,7 @@
   // The switches above stay browser settings either way.
   (async () => {
     if (!(await MyApi.ready)) return;
-    document.querySelector('#s-demo').style.display = 'none';
+    document.querySelector('#s-demo').hidden = true;       // pages.css then drops the divider above it
     document.querySelector('#s-name').textContent = '-'; document.querySelector('#s-mail').textContent = '';
     const me = await MyApi.user();               // not signed in: api.js sends the page to login.html
     if (me) {

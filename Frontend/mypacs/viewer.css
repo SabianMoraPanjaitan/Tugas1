@@ -87,3 +87,12 @@ body.wide .dock{left:57.5rem}
 .slicebar:hover::-webkit-slider-thumb{filter:brightness(1.25)}
 .slicebar[hidden]{display:none}
 #d-as[hidden]{display:none}
+/* report: ICD-10 code + diagnosis, typed by the radiologist (as on the old PACS page) */
+.real .report .icdrow{display:flex;gap:1.2rem;flex:none}
+.real .report .icdrow label{display:flex;flex-direction:column;gap:.4rem;min-width:0}
+.real .report .icdrow label:first-child{flex:0 0 14rem} .real .report .icdrow label:last-child{flex:1}
+.real .report .icdrow input{width:100%;height:4.6rem;border:.1rem solid rgba(255,255,255,.28);border-radius:1.4rem;background:rgba(255,255,255,.06);color:#fff;font:400 2rem var(--sans);padding:0 1.4rem;outline:0;transition:border-color .2s,background .2s}
+.real .report .icdrow #r-icd{font-family:var(--mono);text-transform:uppercase}
+.real .report .icdrow input::placeholder{color:rgba(255,255,255,.45);text-transform:none}
+.real .report .icdrow input:focus{border-color:rgba(255,255,255,.75);background:rgba(255,255,255,.1)}
+.real .report .icdrow input[readonly]{opacity:.75}

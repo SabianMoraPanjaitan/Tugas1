@@ -2,7 +2,10 @@
 performs it, the radiologist reads it.
 
 Status: requested (waiting for the radiographer) -> imaged (waiting for the radiologist)
--> reported (reading sent to SATUSEHAT). Stored in Backend/data/simrs.db (gitignored).
+-> reported (reading sent to SATUSEHAT). While still requested, Radiology may instead send it back
+to the ward (returned, with a reason in data.returned). Local only: a request goes to SATUSEHAT
+just as part of the finished study (send_study), so these statuses are never sent anywhere.
+Stored in Backend/data/simrs.db (gitignored).
 """
 import contextlib
 import datetime
@@ -13,7 +16,7 @@ import uuid
 
 import config
 
-STATUSES = ("requested", "imaged", "reported")
+STATUSES = ("requested", "imaged", "reported", "returned")
 
 
 class NotRequested(Exception):
@@ -41,8 +44,8 @@ def init_db():
                 created    TEXT NOT NULL,
                 updated    TEXT NOT NULL,
                 created_by TEXT NOT NULL,
-                status     TEXT NOT NULL,       -- requested | imaged | reported
-                data       TEXT NOT NULL,       -- JSON: patient, exam, indication, priority, note, requester
+                status     TEXT NOT NULL,       -- requested | imaged | reported | returned
+                data       TEXT NOT NULL,       -- JSON: patient, exam, indication, priority, note, requester, unit?, returned?
                 study_id   TEXT                 -- archive study made from this request
             )
             """
@@ -90,6 +93,23 @@ def set_imaged(order_id, study_id):
                               "WHERE id = ? AND status = 'requested'", (study_id, _now(), order_id)).rowcount
     if changed != 1:
         raise NotRequested(order_id)
+
+
+def set_returned(order_id, reason, by):
+    """Radiology sends the request back to the ward (e.g. the wrong exam). Only while it still waits for
+    images; the reason, who and when are kept in data.returned."""
+    with _db() as con:
+        row = con.execute("SELECT data FROM orders WHERE id = ? AND status = 'requested'", (order_id,)).fetchone()
+        if row is None:
+            raise NotRequested(order_id)
+        data = json.loads(row["data"])
+        data["returned"] = {"reason": reason, "by": by, "at": _now()}
+        changed = con.execute("UPDATE orders SET status = 'returned', data = ?, updated = ? "
+                              "WHERE id = ? AND status = 'requested'",
+                              (json.dumps(data, ensure_ascii=False), _now(), order_id)).rowcount
+    if changed != 1:
+        raise NotRequested(order_id)
+    return get_order(order_id)
 
 
 def set_reported(order_id):

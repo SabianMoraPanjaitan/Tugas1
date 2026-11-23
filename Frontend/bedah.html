@@ -141,6 +141,7 @@ a{text-decoration:none;color:inherit}
 .tag{margin-left:auto;font-style:normal;font-size:9px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:10px}
 .tag.sent{background:rgba(53,196,107,.15);color:var(--green)}
 .tag.scheduled{background:var(--amber-dim);color:var(--amber)}
+.tag.returned{background:rgba(229,72,77,.15);color:var(--red)}
 .field input:disabled,.field select:disabled,.field textarea:disabled{opacity:.6}
 /* tabs + request list */
 .tabs{display:flex;gap:4px;margin:18px 0 16px;border-bottom:1px solid var(--line)}
@@ -330,8 +331,8 @@ function log(h){consoleEl.innerHTML+='\n'+h;consoleEl.scrollTop=consoleEl.scroll
 
 // All radiology requests (every patient) with a status filter. Clicking a row opens it: the
 // patient is filled in above, and a finished request shows the radiologist's reading.
-const RQ_STATUS={requested:['Menunggu radiografer','scheduled'],imaged:['Menunggu radiolog','scheduled'],reported:['Selesai','sent']};
-const RQ_FILTERS=[['all','Semua'],['requested','Menunggu radiografer'],['imaged','Menunggu radiolog'],['reported','Selesai']];
+const RQ_STATUS={requested:['Menunggu radiografer','scheduled'],imaged:['Menunggu radiolog','scheduled'],reported:['Selesai','sent'],returned:['Dikembalikan','returned']};
+const RQ_FILTERS=[['all','Semua'],['requested','Menunggu radiografer'],['imaged','Menunggu radiolog'],['reported','Selesai'],['returned','Dikembalikan']];
 let rqAll=[],rqFilter='all',rqOpen=null;
 async function loadRadiology(){
   try{const r=await fetch(API_BASE+'/api/orders');if(!r.ok)throw new Error('HTTP '+r.status);rqAll=await r.json();}
@@ -360,6 +361,7 @@ function renderOrders(){
         ?'<div class="rr"><b>'+esc(s.icd10)+'</b> '+esc(s.diagnosis||'')+(s.finding?'<br>'+esc(s.finding):'')+
           '<br><span class="muted-s">dibaca oleh '+esc(s.reported_by||'radiolog')+'</span></div>'+
           '<div class="actions" style="margin-top:9px"><button class="btn btn-ghost" data-op="1">Lanjut ke Operasi →</button></div>'
+        :o.status==='returned'?'<div class="rr">Dikembalikan oleh radiologi: '+esc((d.returned||{}).reason||'tanpa alasan')+'</div>'
         :'<div class="rr">'+(o.status==='requested'?'Menunggu pemeriksaan oleh radiografer.':'Citra sudah diambil, menunggu bacaan radiolog.')+'</div>';
     }
     el.innerHTML=html;

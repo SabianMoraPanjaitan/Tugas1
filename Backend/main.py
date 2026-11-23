@@ -189,7 +189,7 @@ async def send_study(body: dict, user: dict = Depends(auth.require_roles(*REPORT
         # keep the radiologist's reading with the archived study; the surgeon reads it in Bedah
         study = update_study(body["archive_id"], {
             **{key: body.get(key, "") for key in READING_FIELDS},
-            "sent": True, "reported_by": user["username"],
+            "sent": True, "reported_by": user["username"], "draft": None,
             "imaging_study_id": result.get("imaging_study_id", ""),
             "diagnostic_report_id": result.get("diagnostic_report_id", ""),
         })
@@ -256,10 +256,14 @@ def list_orders(status: str = "", nik: str = "", user: dict = Depends(auth.requi
 @app.post("/api/orders")
 def create_order(body: dict, user: dict = Depends(auth.require_roles(*ORDERERS))):
     """A doctor requests an exam for a registered patient. body: {patient{nik}, exam{modality,description},
-    indication{icd10,text}, priority, note}. The patient's identity is taken from the registry."""
+    indication{icd10,text}, priority, note, unit?}. The patient's identity is taken from the registry.
+    unit = the ward the request comes from, free text (e.g. "Bedah", "IGD"); left out when not given."""
     nik, exam = str((body.get("patient") or {}).get("nik", "")).strip(), body.get("exam") or {}
+    unit = str(body.get("unit") or "").strip()
     if not nik or not str(exam.get("description", "")).strip():
         raise HTTPException(status_code=400, detail="NIK pasien dan jenis pemeriksaan wajib diisi")
+    if len(unit) > 60:
+        raise HTTPException(status_code=400, detail="Nama unit terlalu panjang (maks. 60 huruf)")
     registered = patients.get_patient(nik)
     if registered is None:
         raise HTTPException(status_code=400, detail="Pasien belum terdaftar. Daftarkan pasien terlebih dulu")
@@ -268,7 +272,26 @@ def create_order(body: dict, user: dict = Depends(auth.require_roles(*ORDERERS))
     data = {"patient": patients.order_patient(registered), "exam": exam, "indication": body.get("indication") or {},
             "priority": body.get("priority") or "Biasa", "note": body.get("note") or "",
             "requester": user["full_name"]}
+    if unit:
+        data["unit"] = unit
     return orders.create_order(data, user["username"])
+
+
+@app.post("/api/orders/{order_id}/return")
+def return_order(order_id: str, body: dict, user: dict = Depends(auth.require_roles(*ARCHIVE_WRITE))):
+    """Radiology sends a request back to the ward that made it (e.g. the wrong exam), with a reason.
+    body: {reason}. Only while it still waits for images; it then stays in the list as 'returned'."""
+    reason = str(body.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Alasan pengembalian wajib diisi")
+    if len(reason) > 500:
+        raise HTTPException(status_code=400, detail="Alasan terlalu panjang (maks. 500 huruf)")
+    if orders.get_order(order_id) is None:
+        raise HTTPException(status_code=404, detail="Permintaan radiologi tidak ditemukan")
+    try:
+        return orders.set_returned(order_id, reason, user["full_name"] or user["username"])
+    except orders.NotRequested:
+        raise HTTPException(status_code=409, detail="Permintaan ini sudah diproses")
 
 
 # ---------- Instalasi Bedah (surgery) ----------
@@ -308,7 +331,34 @@ async def send_procedure(body: dict, user: dict = Depends(auth.require_roles(*BE
 # ---------- local PACS archive ----------
 @app.get("/api/studies")
 def list_studies(user: dict = Depends(auth.require_roles(*ARCHIVE_READ))):
-    return load_studies()
+    studies = load_studies()
+    if user["role"] not in REPORTERS:
+        # a draft is the radiologist's unfinished work: other roles only see that one exists
+        studies = [{**s, "draft": {"saved": s["draft"].get("saved", "")}} if s.get("draft") else s
+                   for s in studies]
+    return studies
+
+
+@app.post("/api/studies/{sid}/reading")
+def save_reading(sid: str, body: dict, user: dict = Depends(auth.require_roles(*REPORTERS))):
+    """Save the radiologist's reading as a draft, without sending it. body: {icd10, diagnosis, finding}.
+    Kept apart from the sent reading (study["draft"]), so pages that show a study's icd10/diagnosis/finding
+    as the final reading never show an unsent draft. All three empty removes the draft."""
+    study = next((s for s in load_studies() if s["id"] == sid), None)
+    if study is None:
+        raise HTTPException(status_code=404, detail="Studi tidak ditemukan")
+    if study.get("sent"):
+        raise HTTPException(status_code=409, detail="Studi ini sudah dibaca dan dikirim ke SATUSEHAT")
+    reading = {key: str(body.get(key) or "").strip() for key in READING_FIELDS}
+    limits = {"icd10": 32, "diagnosis": 500, "finding": 20000}
+    for key, most in limits.items():
+        if len(reading[key]) > most:
+            raise HTTPException(status_code=400, detail=f"{key} terlalu panjang (maks. {most} huruf)")
+    draft = None
+    if any(reading.values()):
+        draft = {**reading, "by": user["username"],
+                 "saved": datetime.datetime.now().isoformat(timespec="seconds")}
+    return update_study(sid, {"draft": draft})
 
 
 @app.post("/api/studies")

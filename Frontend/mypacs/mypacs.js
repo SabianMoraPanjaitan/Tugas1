@@ -28,8 +28,9 @@ function twoLines(t) {
   let best = -1; for (let i = 0; i < t.length; i++) if (t[i] === ' ' && (best < 0 || Math.abs(i - t.length / 2) < Math.abs(best - t.length / 2))) best = i;
   return best < 0 ? t : t.slice(0, best) + '\n' + t.slice(best + 1);
 }
-// Unread: images in, no reading yet. Draft: a reading saved on the study but not sent. Final: sent to SATUSEHAT.
-const stateOf = (s) => s.sent ? 'Final' : (s.icd10 || s.diagnosis || s.finding) ? 'Draft' : 'Unread';
+// Unread: images in, no reading yet. Draft: a reading saved but not sent (study.draft, from the viewer's Save Draft;
+// or reading fields stored at upload). Final: sent to SATUSEHAT.
+const stateOf = (s) => s.sent ? 'Final' : (s.draft || s.icd10 || s.diagnosis || s.finding) ? 'Draft' : 'Unread';
 function fromStudy(s, orderOf, patientOf) {
   const p = patientOf[s.nik] || {}, o = orderOf[s.order_id] || null, d = (o && o.data) || {};
   const sex = SEX[s.gender || p.gender] || '', age = ageOf(s.birthDate || p.birthDate);
@@ -103,22 +104,27 @@ function visibleRows() {
 }
 // a 16-digit NIK is wider than the design's MRN: a smaller size keeps it clear of the age column
 const mrnCell = (v) => { const s = el('span', 'c mrn', v); if (v.length > 10) s.style.fontSize = '1.6rem'; return s; };
-function renderList() {
+function renderList(keep) {                                // keep: a quiet refresh (no entrance, scroll stays)
   shown = visibleRows();
+  const top = wl.scrollTop;
   inner.textContent = '';
   if (!shown.length) { inner.append(el('p', 'empty', loadError || 'No studies match.')); selected = null; clearPreview(); syncBars(); return; }
   if (!shown.some(r => r.key === selected)) selected = shown[0].key;
   inner.append(hl);
   shown.forEach((r, i) => {
     const b = el('button', 'row'); b.type = 'button'; b.dataset.key = r.key; b.style.setProperty('--r', Math.min(i, 9));
+    if (keep) b.style.animation = 'none';
+    const name = el('span', 'c name', r.name), exam = el('span', 'c exam', r.exam);
+    name.title = r.name; exam.title = r.exam.replace('\n', ' ');          // long ones are cut short (mypacs.css)
+    if (r.name.length > 14) name.style.fontSize = '2.6rem';                 // a little smaller first, so most names still fit
     b.append(el('span', 'hl'), el('span', 'pri ' + r.pri.toLowerCase(), r.pri),
-      el('span', 'c name', r.name), mrnCell(r.mrn), el('span', 'c age', r.ageSex),
-      el('span', 'c exam', r.exam), el('span', 'c date', r.date), el('span', 'c time', r.clock), el('span', 'c state', r.state === 'Final' ? 'Finalized' : r.state));
+      name, mrnCell(r.mrn), el('span', 'c age', r.ageSex),
+      exam, el('span', 'c date', r.date), el('span', 'c time', r.clock), el('span', 'c state', r.state === 'Final' ? 'Finalized' : r.state));
     b.addEventListener('click', () => select(r.key));
     b.addEventListener('dblclick', () => { location.href = viewerUrl(r); });
     inner.append(b);
   });
-  wl.scrollTop = 0;
+  wl.scrollTop = keep ? top : 0;
   select(selected, true);
 }
 // live: the archive study id (the viewer reads ?study=); offline: the dummy MRN, as before
@@ -221,6 +227,20 @@ vbar.addEventListener('pointerdown', (e) => {
 $('#thumbs').addEventListener('wheel', (e) => { if (e.deltaY && !e.shiftKey) { e.preventDefault(); $('#thumbs').scrollLeft += e.deltaY; } }, { passive: false });
 addEventListener('resize', moveSel);
 
-load().then(() => { renderStats(); renderMods(); renderList(); });
+load().then(() => { renderStats(); renderMods(); renderList(); seen = signature(); });
+
+// Live: look again when the tab comes back (a report sent or images uploaded in another tab), at most every 5 s,
+// and redraw only when something changed.
+let seen = '', lastLook = Date.now();
+const signature = () => JSON.stringify([$('#n-orders').textContent, rows.map(r => [r.key, r.state, r.pri, r.name, r.exam, r.history])]);
+async function lookAgain() {
+  if (!live || document.hidden || Date.now() - lastLook < 5000) return;
+  lastLook = Date.now();
+  await load();
+  const now = signature(); if (now === seen) return;
+  seen = now; renderStats(); renderMods(); renderList(true);
+}
+addEventListener('focus', lookAgain);
+document.addEventListener('visibilitychange', lookAgain);
 (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(moveSel);
 moveSel();
