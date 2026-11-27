@@ -1,0 +1,98 @@
+/* The real viewer: four panes on real volumes. Loaded after pages.css and overrides the older single-image viewer rules. */
+.real .port{cursor:default;padding:0}
+.real .grid{position:absolute;inset:0;display:grid;gap:.3rem;background:#1a2b2a;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.real .grid[data-layout="1+3"]{grid-template-columns:2.2fr 1fr;grid-template-rows:1fr 1fr 1fr}
+.real .grid[data-layout="1+3"] .pn.big{grid-row:1 / 4;grid-column:1}
+.real .grid[data-layout="one"]{grid-template-columns:1fr;grid-template-rows:1fr}
+.real .grid[data-layout="one"] .pn:not(.big){display:none}
+.pn{position:relative;background:#000;overflow:hidden;min-width:0;min-height:0;touch-action:none;user-select:none}
+.pn canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pn iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.pn.active::after{content:"";position:absolute;inset:0;border:.2rem solid rgba(159,245,216,.55);pointer-events:none}
+.pn .msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:3rem;font-size:1.8rem;font-weight:200;color:rgba(255,255,255,.8)}
+.pn .msg.on{display:flex}
+.pn .tag3d{position:absolute;left:1.2rem;top:.9rem;font:400 1.4rem var(--mono);color:#9fd0ff;pointer-events:none}
+.real .loading{z-index:3}
+.real .loading.off{opacity:0;pointer-events:none}
+.real .loading span{max-width:60rem;text-align:center;line-height:1.4}
+.real .loading.msg i{display:none}
+
+/* series rail */
+.real .s-item{padding:1.2rem 1.4rem;display:block;width:100%}
+.real .s-item b{display:block;font-weight:400;font-size:2rem;line-height:1.2}
+.real .s-item span{margin-top:.3rem;font-size:1.3rem;line-height:1.4;opacity:.9}
+.real .s-item em{display:inline-block;margin-top:.6rem;font-style:normal;font-size:1.3rem;padding:.2rem .9rem;border-radius:1rem;background:var(--pill)}
+.real .s-item em.ph{background:rgba(255,214,120,.22)}
+.real .series .list{flex:1;min-height:0}
+.real .s-head{flex:none;margin-top:.6rem;font-size:1.4rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.real .report .note.ok{color:#9ff5d8}
+#r-note{white-space:pre-line;overflow-wrap:anywhere}
+.real .report .pbtn[disabled]{opacity:.6;pointer-events:none}
+.open-row{flex:none;display:flex;flex-direction:column;gap:.8rem}
+.open-dir{flex:none;display:flex;align-items:center;justify-content:center;height:4.2rem;border-radius:1.4rem;border:.15rem dashed rgba(255,255,255,.5);font-size:1.6rem;cursor:pointer;text-align:center;transition:background .2s}
+.open-dir:hover{background:rgba(255,255,255,.1)}
+
+/* dock: wider, as wide as the viewport */
+.real .dock{left:31rem;width:100rem}
+
+/* side panel */
+.real .report{gap:1.3rem}
+.real .report .seg{height:4.6rem}
+.real .report .seg button{font-size:1.9rem;padding:0 1.8rem;color:inherit}
+.real .report .tab{flex:1;min-height:0;display:flex;flex-direction:column;gap:1.3rem}
+.real .report .tab[hidden]{display:none}
+.real .line.thin{height:.1rem;background:rgba(255,255,255,.4)}
+.real .note{font-size:1.6rem;font-weight:200;line-height:1.35;margin-top:.4rem}
+.real .note.warn{color:#ffd678}
+.chips{display:flex;flex-wrap:wrap;gap:.8rem}
+.chips button{height:4rem;padding:0 1.5rem;border-radius:2rem;background:var(--pill);font-size:1.7rem;transition:background .2s,box-shadow .2s}
+.chips button:hover{background:rgba(255,255,255,.2)}
+.chips button[aria-pressed="true"]{background:var(--tint-strong);box-shadow:0 0 1.6rem .1rem rgba(255,255,255,.25)}
+.ctl2{display:flex;gap:1.6rem} .ctl2 label{flex:1;display:flex;flex-direction:column;gap:.4rem}
+.real input[type=number]{width:100%;height:4.6rem;border:.1rem solid rgba(255,255,255,.28);border-radius:1.4rem;background:rgba(255,255,255,.06);color:#fff;font:400 2rem var(--mono);padding:0 1.4rem;outline:0}
+.real input[type=number]:focus{border-color:rgba(255,255,255,.75)}
+.real .ctl{display:flex;align-items:center;gap:1.4rem;min-height:4.2rem}
+.real .ctl>.label{flex:0 0 12rem}
+.real .ctl .seg{height:4.2rem} .real .ctl .seg button{font-size:1.6rem;padding:0 1.2rem}
+.real .ctl input[type=range]{flex:1;min-width:0;accent-color:#9ff5d8}
+.real .ctl output{flex:0 0 8rem;text-align:right;font:400 1.5rem var(--mono)}
+.real .kvs{display:grid;grid-template-columns:auto 1fr;gap:.6rem 2rem;font-size:1.7rem;align-items:baseline;overflow-y:auto;min-height:0}
+.real .kvs span{font-weight:200} .real .kvs b{font:400 1.5rem var(--mono);text-align:right}
+.real .mlist{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent;display:flex;flex-direction:column;gap:.8rem}
+.real .mlist .none{font-size:1.7rem;font-weight:200;line-height:1.4;opacity:.85}
+.real .mlist .m{display:flex;gap:1.2rem;align-items:flex-start;padding:1rem 1.4rem;border-radius:1.4rem;background:var(--pill);font-size:1.6rem;line-height:1.35;cursor:pointer;transition:background .2s}
+.real .mlist .m:hover{background:rgba(255,255,255,.18)}
+.real .mlist .m div{flex:1} .real .mlist .m b{display:block;font:600 1.6rem var(--mono)} .real .mlist .m small{font-weight:200;font-size:1.4rem}
+.real .mlist .m button{flex:none;width:3rem;height:3rem;border-radius:50%;background:rgba(255,255,255,.12);font-size:1.8rem;line-height:1}
+.real .mlist .m button:hover{background:var(--stat)}
+
+/* wide: the side panel steps aside */
+body.wide .report{display:none}
+body.wide .port{width:153rem}
+body.wide .dock{left:57.5rem}
+
+.real .loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;font-size:2rem;background:#000;transition:opacity .4s;white-space:pre-line}
+.real .loading i{width:5rem;height:5rem;border-radius:50%;border:.3rem solid rgba(255,255,255,.2);border-top-color:#9ff5d8;animation:vspin 1s linear infinite}
+@keyframes vspin{to{rotate:360deg}}
+
+/* slice slider along the bottom of each 2D pane */
+.slicebar{position:absolute;left:0;right:0;bottom:0;width:100%;height:2.2rem;margin:0;padding:0 1rem;box-sizing:border-box;appearance:none;-webkit-appearance:none;background:linear-gradient(transparent,rgba(0,0,0,.55));cursor:ew-resize;opacity:.75;transition:opacity .15s;z-index:2}
+.pn:hover .slicebar,.slicebar:active{opacity:1}
+.slicebar:focus{outline:none}
+.slicebar::-webkit-slider-runnable-track{height:.4rem;border-radius:.2rem;background:linear-gradient(to right,var(--c) var(--f,0%),rgba(255,255,255,.22) var(--f,0%))}
+.slicebar::-moz-range-track{height:.4rem;border-radius:.2rem;background:rgba(255,255,255,.22)}
+.slicebar::-moz-range-progress{height:.4rem;border-radius:.2rem;background:var(--c)}
+.slicebar::-webkit-slider-thumb{-webkit-appearance:none;width:2.6rem;height:1.2rem;margin-top:-.4rem;border-radius:.6rem;background:var(--c);border:.15rem solid rgba(0,0,0,.6);box-shadow:0 0 .8rem rgba(0,0,0,.6)}
+.slicebar::-moz-range-thumb{width:2.6rem;height:1.2rem;border-radius:.6rem;background:var(--c);border:.15rem solid rgba(0,0,0,.6)}
+.slicebar:hover::-webkit-slider-thumb{filter:brightness(1.25)}
+.slicebar[hidden]{display:none}
+#d-as[hidden]{display:none}
+/* report: ICD-10 code + diagnosis, typed by the radiologist (as on the old PACS page) */
+.real .report .icdrow{display:flex;gap:1.2rem;flex:none}
+.real .report .icdrow label{display:flex;flex-direction:column;gap:.4rem;min-width:0}
+.real .report .icdrow label:first-child{flex:0 0 14rem} .real .report .icdrow label:last-child{flex:1}
+.real .report .icdrow input{width:100%;height:4.6rem;border:.1rem solid rgba(255,255,255,.28);border-radius:1.4rem;background:rgba(255,255,255,.06);color:#fff;font:400 2rem var(--sans);padding:0 1.4rem;outline:0;transition:border-color .2s,background .2s}
+.real .report .icdrow #r-icd{font-family:var(--mono);text-transform:uppercase}
+.real .report .icdrow input::placeholder{color:rgba(255,255,255,.45);text-transform:none}
+.real .report .icdrow input:focus{border-color:rgba(255,255,255,.75);background:rgba(255,255,255,.1)}
+.real .report .icdrow input[readonly]{opacity:.75}

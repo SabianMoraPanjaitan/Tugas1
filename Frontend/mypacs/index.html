@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css">
+<script src="fx-head.js"></script>
+</head>
+<body class="portal">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <div class="sheet" style="left:103.6rem;top:23.9rem;--k:2.6rem"></div>
+  <div class="sheet" style="left:99.3rem;top:27.5rem;--k:1.2rem"></div>
+  <img class="tablet" src="assets/tablet.png" alt="A chest CT being read on a tablet">
+  <h1>
+    <span class="t serif" style="left:20.6rem;top:43.193rem;font-size:6.9273rem">Welcome to</span>
+    <span class="t serif brand" style="left:20.6rem;top:57.246rem;font-size:12.795rem">MyPACS</span>
+  </h1>
+  <a class="cta on" href="login.html" id="p-login" style="left:20.1rem;width:19.2rem">Login</a>
+  <a class="cta" href="signin.html" style="left:40.6rem;width:20.2rem">Sign up</a>
+</main>
+<script src="api.js"></script>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script>
+// Live: "Login" goes to the real sign-in (login.html lists this browser's accounts), keeping ?next=.
+// Already signed in? The button says so and goes straight on.
+(async function () {
+  if (!(await MyApi.ready)) return;
+  const HOME = { radiolog: 'home.html', admin: 'home.html', radiografer: 'orders.html', dokter_bedah: 'installations.html' };
+  const next = new URLSearchParams(location.search).get('next'), btn = document.querySelector('#p-login');
+  if (next) btn.href = 'login.html?next=' + encodeURIComponent(next);
+  const me = await MyApi.user();
+  if (me && !next && HOME[me.role]) { btn.href = HOME[me.role]; btn.textContent = 'Open'; btn.title = 'Signed in as ' + me.full_name; }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Installations</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="flow.css">
+<script src="fx-head.js"></script>
+</head>
+<body class="flow">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <a class="tc serif brand" href="index.html" style="left:19.75rem;top:7.1rem;font-size:4.5rem">MyPACS</a>
+  <h1 class="t" style="left:34.6rem;top:7.1rem">Installations</h1>
+  <p class="t sub" style="left:34.6rem;top:12.6rem">Choose the unit you are working in.</p>
+  <div class="grid" id="grid"></div>
+</main>
+<script src="api.js"></script>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script>
+(async function () {
+  const grid = document.querySelector('#grid'), live = await MyApi.ready;
+  // Each request carries its unit (data.unit, e.g. "Bedah"); older ones and those from the old bedah.html count as
+  // Bedah's. A unit's open requests = not read yet (requested or imaged). Radiology's count = imaged, not yet read.
+  const unitOf = o => String((o.data && o.data.unit) || 'Bedah').toLowerCase();
+  let st = MockStore.stats(), fresh = MockStore.orders().filter(o => o.status === 'Requested').length, orders = null;
+  if (live) {
+    try {
+      orders = await MyApi.get('orders');
+      fresh = orders.filter(o => o.status === 'requested').length;
+      st = { Unread: orders.filter(o => o.status === 'imaged').length };
+    } catch (_) { fresh = null; }
+  }
+  const tile = (href, cls, name, local, n, what) => {
+    const a = document.createElement('a'); a.className = 'unit lit ' + cls; a.href = href;
+    a.innerHTML = '<b></b><small></small><span class="n">0</span><span class="what"></span><span class="go" aria-hidden="true">›</span>';
+    a.querySelector('b').textContent = name; a.querySelector('small').textContent = local; a.querySelector('.what').textContent = what;
+    grid.append(a); if (n === null) a.querySelector('.n').textContent = '-'; else MyFx.count(a.querySelector('.n'), n, 2);
+  };
+  if (live && fresh === null) tile('home.html', 'rad', 'Radiology', 'Radiologi · PACS', null, 'requests could not be loaded');
+  else if (live) tile('home.html', 'rad', 'Radiology', 'Radiologi · PACS', st.Unread, 'waiting to be read · ' + fresh + ' new orders');
+  else tile('home.html', 'rad', 'Radiology', 'Radiologi · PACS', st.Unread, 'unread studies · ' + fresh + ' new orders');
+  MockStore.installations().forEach(i => {
+    const n = !live ? i.open : orders ? orders.filter(o => unitOf(o) === i.local.toLowerCase() && (o.status === 'requested' || o.status === 'imaged')).length : null;
+    tile('dept.html?d=' + i.id, '', i.name, i.local, n, n === null ? 'requests could not be loaded' : n === 1 ? 'open request' : 'open requests');
+  });
+})();
+</script>
+</body>
+</html>

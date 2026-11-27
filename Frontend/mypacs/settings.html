@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Account settings</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css">
+<script src="fx-head.js"></script>
+</head>
+<body class="settings">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <a class="tc serif brand" href="home.html" style="left:19.75rem;top:11.6rem;font-size:4.5rem">MyPACS</a>
+  <a class="pill-link" href="home.html" style="left:160.5rem;top:8.8rem"><span aria-hidden="true">‹</span> Worklist</a>
+  <h1 class="t" style="left:34.6rem;top:11.6rem;font-size:5rem">Account settings</h1>
+
+  <div class="glass card lit"></div>
+
+  <section class="profile">
+    <div class="pic"><img src="assets/avatar.png" alt=""></div>
+    <div class="name" id="s-name"></div>
+    <div class="mail" id="s-mail"></div>
+    <a class="pbtn ghost" href="installations.html">Switch installation</a>
+    <a class="pbtn ghost" href="login.html">Switch account</a>
+    <a class="pbtn solid" href="index.html" id="s-out">Sign out</a>
+  </section>
+
+  <section class="opts">
+    <div class="opt"><div><b>Living background</b><small>Slow drifting colour behind the glass.</small></div>
+      <button class="switch" role="switch" data-key="background" data-fx="bg"><i></i></button></div>
+    <div class="opt"><div><b>Dynamic lighting</b><small>The glass catches light where your cursor is.</small></div>
+      <button class="switch" role="switch" data-key="lighting" data-fx="light"><i></i></button></div>
+    <div class="opt"><div><b>Animations</b><small>Page transitions, entrances and sliding highlights.</small></div>
+      <button class="switch" role="switch" data-key="motion" data-fx="motion"><i></i></button></div>
+    <div class="opt"><div><b>Interface size</b><small>Zoom the whole app out a little to see more room around it.</small></div>
+      <div class="seg" id="size"><button data-v="100">100%</button><button data-v="90">90%</button><button data-v="80">80%</button></div></div>
+    <div class="opt"><div><b>Default worklist tab</b><small>The modality shown first on the Home Page.</small></div>
+      <div class="seg" id="seg">
+        <button data-m="">All</button><button data-m="CT">CT</button><button data-m="MRI">MRI</button>
+        <button data-m="X-Ray">X-Ray</button><button data-m="USG">USG</button><button data-m="PET">PET</button>
+      </div></div>
+    <div class="opt" id="s-demo"><div><b>Demo data</b><small>Put the dummy patients and reports back to how they started.</small></div>
+      <button class="pbtn ghost" id="s-reset">Reset</button></div>
+  </section>
+</main>
+<script src="api.js"></script>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script>
+(function () {
+  let s = MockStore.settings();
+  document.querySelector('#s-name').textContent = s.name;
+  document.querySelector('#s-mail').textContent = s.email;
+  document.querySelectorAll('.switch').forEach(b => {
+    b.setAttribute('aria-checked', !!s[b.dataset.key]);
+    b.addEventListener('click', () => {
+      const on = b.getAttribute('aria-checked') !== 'true';
+      b.setAttribute('aria-checked', on); s = MockStore.setSetting(b.dataset.key, on); MyFx.apply(b.dataset.fx, on);
+    });
+  });
+  document.querySelectorAll('#seg button').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.m === s.tab);
+    b.addEventListener('click', () => {
+      s = MockStore.setSetting('tab', b.dataset.m);
+      document.querySelectorAll('#seg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    });
+  });
+  document.querySelectorAll('#size button').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.v === (s.size || '100'));
+    b.addEventListener('click', () => {
+      s = MockStore.setSetting('size', b.dataset.v); MyFx.size(b.dataset.v);
+      document.querySelectorAll('#size button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    });
+  });
+  document.querySelector('#s-reset').addEventListener('click', () => { MockStore.reset(); MyFx.toast('Demo data reset'); });
+
+  // Live: the account is the backend's (/api/auth/me); demo data is not used, so its Reset is hidden.
+  // The switches above stay browser settings either way.
+  (async () => {
+    if (!(await MyApi.ready)) return;
+    document.querySelector('#s-demo').hidden = true;       // pages.css then drops the divider above it
+    document.querySelector('#s-name').textContent = '-'; document.querySelector('#s-mail').textContent = '';
+    const me = await MyApi.user();               // not signed in: api.js sends the page to login.html
+    if (me) {
+      const name = document.querySelector('#s-name'), pic = document.querySelector('.profile .pic');
+      name.textContent = me.full_name || '-'; if (name.textContent.length > 16) name.style.fontSize = '4rem';
+      // the drawn avatar has the demo initials on it: show this account's initials instead
+      const ini = String(me.full_name || me.username || '').replace(/^(dr|drg|ns)\.?\s+/i, '').split(/[\s,]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+      const tag = document.createElement('span'); tag.textContent = ini || '-';
+      tag.style.cssText = 'display:grid;place-items:center;width:100%;height:100%;background:var(--grey);color:var(--ink);font-size:6rem;font-weight:500';
+      pic.replaceChildren(tag);
+      document.querySelector('#s-mail').textContent = [me.username, me.role_label].filter(Boolean).join(' · ') || '-';
+    }
+    document.querySelector('#s-out').addEventListener('click', async e => {
+      e.preventDefault(); await MyApi.logout(); location.replace('login.html');
+    });
+  })();
+})();
+</script>
+</body>
+</html>

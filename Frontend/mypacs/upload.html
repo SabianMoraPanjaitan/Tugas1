@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Upload images</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="flow.css">
+<script src="fx-head.js"></script>
+</head>
+<body class="flow">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <a class="tc serif brand" href="home.html" style="left:19.75rem;top:7.1rem;font-size:4.5rem">MyPACS</a>
+  <h1 class="t" style="left:34.6rem;top:7.1rem">Upload images</h1>
+  <p class="t sub" style="left:34.6rem;top:12.6rem">Radiology · DICOM files are read on this computer, nothing is sent anywhere</p>
+  <a class="pill-link" href="orders.html" style="left:146rem"><span aria-hidden="true">‹</span> Order inbox</a>
+  <a class="avatar" href="settings.html" title="Account settings" style="left:173.9rem;top:2.1rem"><img src="assets/avatar.png" alt="Account settings"></a>
+
+  <section class="card lit" id="left" style="left:9rem;width:112rem">
+    <div class="drop" id="drop">
+      <svg viewBox="0 0 24 24"><path d="M12 16V5M7.5 9.5L12 5l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      <b>Drop a DICOM folder here</b>
+      <small>One folder per series or a whole study. Files: .dcm, .ima or no extension.</small>
+      <div class="btns"><label class="pbtn solid" style="cursor:pointer">Choose folder<input type="file" id="pick-dir" webkitdirectory multiple hidden></label>
+        <label class="pbtn ghost" style="cursor:pointer">Choose files<input type="file" id="pick-files" multiple hidden></label></div>
+    </div>
+    <div id="reading" style="display:none;flex-direction:column;gap:1.2rem"><div class="label" id="read-text"></div><div class="bar"><i id="read-bar"></i></div></div>
+    <div class="scroll" id="series" hidden></div>
+  </section>
+
+  <aside class="card lit" id="side" style="left:125rem;width:58rem">
+    <h2>For order</h2>
+    <div class="line"></div>
+    <label class="field"><span class="label">Accepted order</span><select id="order"></select></label>
+    <div class="kvs" id="o-info"></div>
+    <div class="label">Checks</div>
+    <div class="checks" id="checks"><div class="info">Waiting for files.</div></div>
+    <div style="flex:1"></div>
+    <button class="pbtn ghost" id="again" hidden>Choose other files</button>
+    <button class="pbtn solid" id="send" disabled>Send to the worklist</button>
+  </aside>
+</main>
+<script src="api.js"></script>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script src="codecs.js"></script>
+<script src="dicomlite.js"></script>
+<script src="upload.js"></script>
+</body>
+</html>

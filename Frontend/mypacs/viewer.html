@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Viewer</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="viewer.css">
+<script src="fx-head.js"></script>
+</head>
+<body class="viewer real">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <a class="tc serif brand" href="home.html" style="left:19.75rem;top:7.1rem;font-size:4.5rem">MyPACS</a>
+
+  <!-- study bar -->
+  <header class="vbar-top">
+    <a class="nav-btn" href="home.html" title="Back to the worklist" aria-label="Back to the worklist"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <span class="pri" id="v-pri"></span>
+    <span class="who" id="v-name"></span>
+    <span class="meta" id="v-meta"></span>
+    <span class="grow"></span>
+    <span class="exam" id="v-exam"></span>
+    <span class="meta" id="v-date"></span>
+    <button class="nav-btn" id="v-prev" title="Previous study" aria-label="Previous study"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+    <button class="nav-btn" id="v-next" title="Next study" aria-label="Next study"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+  </header>
+  <a class="avatar" href="settings.html" title="Account settings" style="left:173.9rem;top:2.1rem"><img src="assets/avatar.png" alt="Account settings"></a>
+
+  <!-- series -->
+  <aside class="col series lit">
+    <h2>Series</h2>
+    <div class="list" id="series"></div>
+    <div class="open-row">
+      <label class="open-dir" title="Read a DICOM folder from this computer. Nothing is uploaded.">Open folder<input type="file" id="open-dir" webkitdirectory multiple hidden></label>
+      <label class="open-dir" title="Read DICOM files or one .nii / .nii.gz file from this computer. Nothing is uploaded.">Open files<input type="file" id="open-files" multiple hidden></label>
+    </div>
+  </aside>
+
+  <!-- viewport: four panes -->
+  <section class="col port lit" id="port">
+    <div class="grid" id="grid" data-layout="2x2">
+      <div class="pn" data-pane="ax"><canvas></canvas></div>
+      <div class="pn" data-pane="3d"><iframe id="frame3d" title="3D reconstruction"></iframe><div class="msg" id="msg3d"></div><span class="tag3d">3D</span></div>
+      <div class="pn" data-pane="sa"><canvas></canvas></div>
+      <div class="pn" data-pane="co"><canvas></canvas></div>
+    </div>
+    <div class="loading" id="loading"><i></i><span>Loading the series…</span></div>
+  </section>
+
+  <!-- tools -->
+  <nav class="dock lit" id="dock" aria-label="Viewer tools">
+    <div class="sel"></div>
+    <button class="tool" data-tool="cross" data-tip="Crosshair: click to move all views  (C)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
+    <button class="tool" data-tool="wl" data-tip="Window / Level  (W)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v16M12 6a6 6 0 0 1 0 12" fill="currentColor"/></svg></button>
+    <button class="tool" data-tool="pan" data-tip="Pan  (P)"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg></button>
+    <button class="tool" data-tool="zoom" data-tip="Zoom  (Z)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21M10.5 8v5M8 10.5h5"/></svg></button>
+    <button class="tool" data-tool="scroll" data-tip="Scroll slices  (S)"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="4" rx="1.5"/><rect x="5" y="10" width="14" height="4" rx="1.5"/><rect x="5" y="16" width="14" height="4" rx="1.5"/></svg></button>
+    <span class="sep"></span>
+    <button class="tool" data-tool="len" data-tip="Length in mm  (M)"><svg viewBox="0 0 24 24"><path d="M4 16L16 4l4 4L8 20z M7.5 12.5l2 2M10.5 9.5l2 2M13.5 6.5l2 2"/></svg></button>
+    <button class="tool" data-tool="ang" data-tip="Angle: click three points  (A)"><svg viewBox="0 0 24 24"><path d="M4 19h16M4 19L16 5M11 19a8 8 0 0 0-1.8-5"/></svg></button>
+    <button class="tool" data-tool="roi" data-tip="Ellipse ROI: mean, max, SUV / HU  (O)"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6"/><path d="M12 10v4M10 12h4"/></svg></button>
+    <span class="sep"></span>
+    <button class="tool" data-act="invert" data-tip="Invert  (I)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg></button>
+    <button class="tool" data-act="layout" data-tip="Change layout  (G)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button>
+    <button class="tool" data-act="wide" data-tip="Hide / show the side panel  (H)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M15 5v14"/></svg></button>
+    <button class="tool" data-act="reset" data-tip="Reset view  (R)"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5"/></svg></button>
+    <button class="tool" data-act="full" data-tip="Full screen  (F)"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <a class="tool" id="v-3d" href="recon.html" data-tip="Open the full 3D page"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></a>
+  </nav>
+
+  <!-- side panel: report, display, measurements -->
+  <aside class="col report lit" id="side">
+    <div class="head"><div class="seg" id="tabs"><button data-tab="report" aria-pressed="true">Report</button><button data-tab="display" aria-pressed="false">Display</button><button data-tab="measure" aria-pressed="false">Measure</button></div><span class="state" id="r-state"></span></div>
+    <div class="line"></div>
+
+    <div class="tab" data-tab="report">
+      <div><div class="label">Clinical History</div><div class="value" id="r-hist"></div></div>
+      <div><div class="label">Referrer</div><div class="value" id="r-ref"></div></div>
+      <div class="icdrow">
+        <label><span class="label">ICD-10</span><input type="text" id="r-icd" placeholder="Code" autocomplete="off" spellcheck="false" maxlength="32"></label>
+        <label><span class="label">Diagnosis</span><input type="text" id="r-dx" placeholder="Diagnosis for the code" autocomplete="off" maxlength="500"></label>
+      </div>
+      <div class="label">Findings</div>
+      <textarea id="r-find" placeholder="Describe the findings…"></textarea>
+      <div class="label">Impression</div>
+      <textarea id="r-imp" placeholder="Summarise the impression…" style="flex:.6"></textarea>
+      <button class="pbtn ghost" id="r-draft">Save Draft</button>
+      <button class="pbtn solid" id="r-final">Finalize</button>
+      <div class="note" id="r-note" hidden></div>
+    </div>
+
+    <div class="tab" data-tab="display" hidden>
+      <div><div class="label">Values</div><div class="value" id="d-unit"></div><div class="note" id="d-note"></div></div>
+      <div class="chips" id="d-as" hidden><button id="d-ct" aria-pressed="false" title="A .nii file does not say what scanner made it. Turn this on only if you know it is a CT.">This is a CT: read values as HU</button></div>
+      <div class="label">Window presets</div>
+      <div class="chips" id="presets"></div>
+      <div class="ctl2"><label><span class="label">Width</span><input type="number" id="d-w" step="any"></label><label><span class="label">Level</span><input type="number" id="d-l" step="any"></label></div>
+      <div class="ctl"><span class="label">Colour</span><div class="seg" id="cmap"></div></div>
+      <div class="ctl"><span class="label">Filter</span><div class="seg" id="filter"><button data-v="">None</button><button data-v="smooth">Smooth</button><button data-v="sharpen">Sharpen</button><button data-v="median">Denoise</button></div></div>
+      <label class="ctl"><span class="label">Thick slab (MIP)</span><input type="range" id="slab" min="0" max="20" value="0"><output id="slab-out">Off</output></label>
+      <div class="line thin"></div>
+      <div class="kvs" id="d-info"></div>
+    </div>
+
+    <div class="tab" data-tab="measure" hidden>
+      <div class="label">Measurements on this series</div>
+      <div class="mlist" id="mlist"></div>
+      <button class="pbtn ghost" id="m-clear">Clear all</button>
+      <button class="pbtn solid" id="m-add">Add to findings</button>
+    </div>
+  </aside>
+</main>
+<script src="api.js"></script>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script src="codecs.js"></script>
+<script src="dicomlite.js"></script>
+<script src="pacs-engine.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+/* MyPACS motion layer: living background, cursor lighting, entrances, page transitions.
+   Not from the Figma file — it sits on top of mypacs.css and can be switched off in Settings. */
+
+/* ---------- page-to-page transitions ---------- */
+@view-transition{navigation:auto}
+::view-transition-old(root){animation:vt-out .32s cubic-bezier(.4,0,.2,1) both}
+::view-transition-new(root){animation:vt-in .5s cubic-bezier(.2,.7,.2,1) both}
+@keyframes vt-out{to{opacity:0;filter:blur(1.2rem);scale:1.02}}
+@keyframes vt-in{from{opacity:0;filter:blur(1.2rem);scale:.985}}
+.brand{view-transition-name:brand}
+::view-transition-group(brand){animation-duration:.6s;animation-timing-function:cubic-bezier(.2,.7,.2,1)}
+
+/* ---------- living background ---------- */
+.backdrop img,.home .bg img{animation:breathe 38s ease-in-out infinite alternate;transform-origin:60% 60%}
+@keyframes breathe{from{transform:scale(1) translate3d(0,0,0)}to{transform:scale(1.12) translate3d(-2%,1.5%,0)}}
+.aurora{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.aurora i{position:absolute;width:var(--w,95rem);height:var(--w,95rem);border-radius:50%;
+  background:radial-gradient(closest-side,var(--c),transparent);mix-blend-mode:screen;opacity:var(--o,.5);
+  animation:drift var(--d,26s) ease-in-out infinite alternate;will-change:transform}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(var(--x),var(--y),0) scale(var(--s,1.2))}}
+.grain{position:absolute;inset:0;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ---------- light that follows the cursor ---------- */
+.spot{position:fixed;inset:0;pointer-events:none;z-index:0;mix-blend-mode:screen;opacity:var(--spot,0);transition:opacity .6s;
+  background:radial-gradient(46rem circle at var(--px,50%) var(--py,30%),rgba(170,255,228,.2),rgba(120,230,210,.06) 45%,transparent 70%)}
+.lit{--mx:50%;--my:50%;--lo:0}
+.lit::before,.lit::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+.lit::before{background:radial-gradient(34rem circle at var(--mx) var(--my),rgba(255,255,255,.13),transparent 65%);opacity:var(--lo)}
+.lit::after{padding:.15rem;background:radial-gradient(30rem circle at var(--mx) var(--my),rgba(255,255,255,.85),rgba(255,255,255,.1) 60%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+  opacity:calc(.18 + var(--lo) * .82)}
+
+/* ---------- entrances ---------- */
+@keyframes rise{from{opacity:0;translate:0 2.4rem;filter:blur(.6rem)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.stage>*,.home>*:not(.bg):not(.aurora):not(.spot):not(.grain){animation:rise .9s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:calc(var(--i,0) * 28ms)}
+.wl .row{animation:rise .55s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:calc(var(--r,0) * 32ms)}
+.swap{animation:rise .45s cubic-bezier(.2,.7,.2,1) backwards}
+.thumbs img{animation:rise .5s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:calc(var(--r,0) * 70ms)}
+
+/* ---------- touch feedback ---------- */
+.pbtn,.btn,.cta,.tile,.acct,.search,.avatar{transition:scale .18s,translate .25s,filter .2s,background .2s,box-shadow .25s,opacity .25s,width .25s}
+.pbtn:active,.btn:active,.cta:active,.acct:active,.search:active{scale:.97}
+.avatar{transition:scale .25s,box-shadow .25s}
+.avatar:hover{scale:1.06;box-shadow:0 0 0 .3rem rgba(255,255,255,.35),0 0 3rem rgba(255,255,255,.35)}
+.row .pri{transition:scale .2s}
+.row:hover .pri{scale:1.04}
+.row .c{transition:translate .25s}
+.row:hover .c{translate:.25rem 0}
+
+/* Portal: the tablet floats and leans towards the cursor */
+.portal .tablet{animation:rise .9s cubic-bezier(.2,.7,.2,1) backwards,float 7s ease-in-out 1s infinite alternate;
+  translate:calc(var(--nx,0) * -1.6rem) calc(var(--ny,0) * -1.6rem);transition:translate .5s cubic-bezier(.2,.7,.2,1)}
+.portal .sheet{translate:calc(var(--nx,0) * var(--k,1rem)) calc(var(--ny,0) * var(--k,1rem));transition:translate .6s cubic-bezier(.2,.7,.2,1)}
+@keyframes float{from{transform:translateY(-.7rem)}to{transform:translateY(.9rem)}}
+
+/* ---------- switches from Settings ---------- */
+html[data-bg="off"] .aurora,html[data-bg="off"] .grain{display:none}
+html[data-bg="off"] .backdrop img,html[data-bg="off"] .home .bg img{animation:none}
+html[data-light="off"] .spot{display:none}
+html[data-light="off"] .lit::before{display:none}
+html[data-light="off"] .lit::after{opacity:.18}
+html[data-motion="off"] *,html[data-motion="off"] *::before,html[data-motion="off"] *::after{animation:none!important;transition:none!important}
+html[data-motion="off"]::view-transition-group(*),html[data-motion="off"]::view-transition-old(*),html[data-motion="off"]::view-transition-new(*){animation:none!important}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}
+}

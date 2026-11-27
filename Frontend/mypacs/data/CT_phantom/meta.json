@@ -1,0 +1,236 @@
+{
+ "id": "CT_phantom",
+ "label": "CT phantom",
+ "modality": "CT",
+ "unit": "HU",
+ "rescale": {
+  "scale": 1.0,
+  "offset": -1000.0
+ },
+ "pet": null,
+ "synthetic": true,
+ "bodyPart": "PHANTOM",
+ "dims": [
+  192,
+  192,
+  72
+ ],
+ "spacing": [
+  1.5,
+  1.5,
+  2.5
+ ],
+ "origin": [
+  -143.25,
+  -143.25,
+  -88.75
+ ],
+ "axes": "x = patient left, y = posterior, z = superior",
+ "max": 1700,
+ "hi": 1700.0,
+ "iso": 317.7,
+ "windowCenter": 40,
+ "windowWidth": 400,
+ "bodyBox": [
+  [
+   13,
+   178
+  ],
+  [
+   33,
+   158
+  ],
+  [
+   2,
+   69
+  ]
+ ],
+ "bodyExtentMm": [
+  249.0,
+  189.0,
+  170.0
+ ],
+ "tags": [
+  [
+   "Patient",
+   "Name",
+   "",
+   ""
+  ],
+  [
+   "Patient",
+   "ID",
+   "",
+   ""
+  ],
+  [
+   "Patient",
+   "Sex",
+   "",
+   ""
+  ],
+  [
+   "Patient",
+   "Birth date",
+   "",
+   ""
+  ],
+  [
+   "Patient",
+   "Position",
+   "HFS",
+   ""
+  ],
+  [
+   "Study",
+   "Modality",
+   "CT",
+   ""
+  ],
+  [
+   "Study",
+   "Body part",
+   "PHANTOM",
+   ""
+  ],
+  [
+   "Study",
+   "Study date",
+   "20261114",
+   ""
+  ],
+  [
+   "Study",
+   "Description",
+   "Synthetic phantom (not a patient)",
+   ""
+  ],
+  [
+   "Study",
+   "Series",
+   "CT phantom, known HU",
+   ""
+  ],
+  [
+   "Study",
+   "Institution",
+   "",
+   ""
+  ],
+  [
+   "Scanner",
+   "Manufacturer",
+   "MyPACS test generator",
+   ""
+  ],
+  [
+   "Scanner",
+   "Model",
+   "",
+   ""
+  ],
+  [
+   "Scanner",
+   "Field strength",
+   "",
+   ""
+  ],
+  [
+   "Sequence",
+   "Sequence",
+   "",
+   ""
+  ],
+  [
+   "Sequence",
+   "Scanning sequence",
+   "",
+   ""
+  ],
+  [
+   "Sequence",
+   "Acquisition",
+   "",
+   ""
+  ],
+  [
+   "Sequence",
+   "Repetition time",
+   "",
+   ""
+  ],
+  [
+   "Sequence",
+   "Echo time",
+   "",
+   ""
+  ],
+  [
+   "Sequence",
+   "Flip angle",
+   "",
+   ""
+  ],
+  [
+   "Image",
+   "Rows × columns",
+   "192 × 192",
+   ""
+  ],
+  [
+   "Image",
+   "Pixel spacing",
+   "1.5 \\ 1.5",
+   "mm"
+  ],
+  [
+   "Image",
+   "Slice thickness",
+   "2.5",
+   "mm"
+  ],
+  [
+   "Image",
+   "Bits stored",
+   "16",
+   ""
+  ],
+  [
+   "Image",
+   "Photometric",
+   "MONOCHROME2",
+   ""
+  ],
+  [
+   "Image",
+   "Window centre",
+   "40",
+   ""
+  ],
+  [
+   "Image",
+   "Window width",
+   "400",
+   ""
+  ],
+  [
+   "Image",
+   "Transfer syntax",
+   "Explicit VR Little Endian",
+   ""
+  ],
+  [
+   "Image",
+   "Series UID",
+   "1.2.826.0.1.3680043.8.498.22484071665157153924135925796729550036",
+   ""
+  ],
+  [
+   "Image",
+   "Slices",
+   "72",
+   ""
+  ]
+ ],
+ "credit": "Synthetic phantom made by tools/make_phantoms.py. Not a patient."
+}

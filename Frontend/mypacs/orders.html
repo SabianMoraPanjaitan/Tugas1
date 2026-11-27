@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Order inbox</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css"><link rel="stylesheet" href="flow.css">
+<script src="fx-head.js"></script>
+</head>
+<body class="flow">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <a class="tc serif brand" href="home.html" style="left:19.75rem;top:7.1rem;font-size:4.5rem">MyPACS</a>
+  <h1 class="t" style="left:34.6rem;top:7.1rem">Order inbox</h1>
+  <p class="t sub" style="left:34.6rem;top:12.6rem">Radiology · requests from the other installations</p>
+  <a class="pill-link" href="installations.html" style="left:126rem">Installations</a>
+  <a class="pill-link" href="home.html" style="left:149rem"><span aria-hidden="true">‹</span> Worklist</a>
+  <a class="avatar" href="settings.html" title="Account settings" style="left:173.9rem;top:2.1rem"><img src="assets/avatar.png" alt="Account settings"></a>
+
+  <section class="card lit" style="left:9rem;width:112rem">
+    <div class="head"><div class="seg" id="filter"></div><div class="seg" id="unit"></div></div>
+    <div class="line"></div>
+    <div class="scroll" id="list"></div>
+  </section>
+
+  <aside class="card lit" id="detail" style="left:125rem;width:58rem"></aside>
+</main>
+<script src="api.js"></script>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script>
+(async function () {
+  const $ = s => document.querySelector(s), params = new URLSearchParams(location.search);
+  const live = await MyApi.ready;
+  // Backend statuses: requested (waiting for the radiographer) -> imaged (waiting for the radiologist) -> reported,
+  // or returned (sent back to the ward, with a reason). It has no separate "accepted" step.
+  const VIEWS = live
+    ? [['new', 'New', ['Requested']], ['done', 'Imaged', ['Imaged']], ['rep', 'Reported', ['Reported']], ['back', 'Sent back', ['Rejected']], ['all', 'All', null]]
+    : [['new', 'New', ['Requested']], ['todo', 'To image', ['Accepted']], ['done', 'Imaged', ['Imaged', 'Reported']], ['all', 'All', null]];
+  let view = params.get('view') || 'new', unit = '', sel = params.get('order') || '';
+  if (!VIEWS.some(v => v[0] === view)) view = 'new';
+  if (sel) view = 'all';
+  const me = live ? await MyApi.user() : null, CAN_UPLOAD = ['radiografer', 'admin'];
+
+  // a backend request in the shape this page draws
+  const ST = { requested: 'Requested', imaged: 'Imaged', reported: 'Reported', returned: 'Rejected' };
+  // the unit a request comes from (data.unit); older ones and those from the old bedah.html are Bedah's
+  const INST = MockStore.installations();
+  const instOf = d => { const u = String(d.unit || 'Bedah'), i = INST.find(x => x.local.toLowerCase() === u.toLowerCase()); return i ? { id: i.id, name: i.name, local: i.local } : { id: '', name: u, local: u }; };
+  const ageOf = b => { const d = new Date(b); if (!b || isNaN(d)) return '-'; const n = new Date(); let a = n.getFullYear() - d.getFullYear(); if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--; return a; };
+  const sexOf = g => g === 'Laki-laki' ? 'M' : g === 'Perempuan' ? 'F' : '-';
+  const two = n => String(n).padStart(2, '0');
+  // the exam as shown: the modality code, unless the description already starts with it ("CT Head", "MRI Brain")
+  const examText = ex => { const m = ex.modality || '', d = ex.description || ''; return (m && d.toUpperCase().startsWith(m) ? d : [m, d].filter(Boolean).join(' ')) || '-'; };
+  const fromApi = o => { const d = o.data || {}, p = d.patient || {}, ex = d.exam || {}, ind = d.indication || {}, s = o.study, t = new Date(o.created), ok = !isNaN(t);
+    return { id: o.id, name: p.name || '-', mrn: p.nik || '-', ageSex: ageOf(p.birthDate) + ' / ' + sexOf(p.gender),
+      pri: d.priority === 'CITO' ? 'CITO' : 'ROUTINE', priCls: d.priority === 'CITO' ? 'stat' : 'routine', rank: d.priority === 'CITO' ? 0 : 2,
+      exam: examText(ex), status: ST[o.status] || o.status,
+      inst: instOf(d), dept: instOf(d).id, referrer: d.requester || '-',
+      back: (d.returned && d.returned.reason) || '', backBy: (d.returned && d.returned.by) || '',
+      history: [ind.icd10, ind.text].filter(Boolean).join(' · ') || '-', note: d.note || '', files: null, time: o.created || '',
+      date: ok ? t.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '-', clock: ok ? two(t.getHours()) + '.' + two(t.getMinutes()) + ' WIB' : '-',
+      study: s ? s.id : '' }; };
+  let rows = [], failed = '';
+  async function load() {
+    if (!live) { rows = MockStore.orders(); return; }
+    try { rows = (await MyApi.get('orders')).map(fromApi); failed = ''; }
+    catch (err) { rows = []; failed = err.status === 403 ? 'Your account cannot see radiology requests.' : 'Requests could not be loaded: ' + err.message; }
+  }
+  const getOrder = id => live ? rows.find(o => o.id === id) : MockStore.order(id);
+
+  function chips() {
+    const all = rows, f = $('#filter'), u = $('#unit'); f.textContent = ''; u.textContent = '';
+    VIEWS.forEach(([v, label, st]) => { const b = document.createElement('button'); b.dataset.v = v; b.setAttribute('aria-pressed', v === view);
+      const n = all.filter(o => !st || st.includes(o.status)).length; b.textContent = label + '  ' + n; f.append(b); });
+    [['', 'All units'], ...MockStore.installations().map(i => [i.id, i.local])].forEach(([v, label]) => { const b = document.createElement('button'); b.dataset.v = v; b.textContent = label; b.setAttribute('aria-pressed', v === unit); u.append(b); });
+  }
+  $('#filter').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { view = b.dataset.v; render(); } });
+  $('#unit').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { unit = b.dataset.v; render(); } });
+  const RANK = { STAT: 0, URGENT: 1, ROUTINE: 2 };
+  function render(keep) {
+    if (!live) rows = MockStore.orders();
+    chips();
+    const st = VIEWS.find(v => v[0] === view)[2];
+    const list = rows.filter(o => (!st || st.includes(o.status)) && (!unit || o.dept === unit))
+      .sort((a, b) => (a.rank ?? RANK[a.pri]) - (b.rank ?? RANK[b.pri]) || b.time.localeCompare(a.time));
+    const box = $('#list'); box.textContent = '';
+    if (!list.some(o => o.id === sel)) sel = list.length ? list[0].id : '';
+    if (failed) { box.innerHTML = '<div class="empty"></div>'; box.firstChild.textContent = failed; }
+    else if (!list.length) box.innerHTML = '<div class="empty">No orders here.</div>';
+    list.forEach((o, n) => {
+      const b = document.createElement('button'); b.className = 'ord' + (o.id === sel ? ' on' : ''); if (!keep) b.style.setProperty('--n', n); else b.style.animation = 'none';
+      b.innerHTML = '<span class="chip pri ' + (o.priCls || o.pri.toLowerCase()) + '"></span><span class="who"><b></b><small></small></span><span class="exam"></span><span class="chip inst"></span><span class="chip st-' + o.status + '"></span><span class="when"></span>';
+      b.querySelector('.pri').textContent = o.pri; b.querySelector('b').textContent = o.name; b.querySelector('small').textContent = o.id + '  ·  ' + o.mrn + '  ·  ' + o.ageSex;
+      b.querySelector('.exam').textContent = o.exam.replace('\n', ' '); b.querySelector('.inst').textContent = o.inst.local; b.querySelector('.st-' + o.status).textContent = o.status; b.querySelector('.when').textContent = o.clock;
+      b.addEventListener('click', () => { sel = o.id; render(true); });
+      box.append(b);
+    });
+    detail();
+  }
+  function detail() {
+    const box = $('#detail'), o = sel && getOrder(sel);
+    if (!o) { box.innerHTML = '<h2>Order</h2><div class="line"></div><div class="empty">Pick an order on the left.</div>'; return; }
+    box.innerHTML = '<div class="head"><h2></h2><span class="chip st-' + o.status + '">' + o.status + '</span></div><div class="line"></div>'
+      + '<div><div class="label">Patient</div><div class="value" id="x-name" style="font-size:3.4rem"></div></div>'
+      + '<div class="kvs"><span>' + (live ? 'NIK' : 'MRN') + '</span><b id="x-mrn"></b><span>Age / sex</span><b id="x-age"></b><span>From</span><b id="x-from"></b><span>Examination</span><b id="x-exam"></b><span>Priority</span><b id="x-pri"></b><span>Referrer</span><b id="x-ref"></b><span>Sent</span><b id="x-when"></b></div>'
+      + '<div><div class="label">Clinical history and question</div><div class="value" id="x-hist"></div></div>'
+      + '<div><div class="label">Supporting documents</div><div class="files" id="x-files"></div></div><div style="flex:1"></div><div id="x-act" style="display:flex;flex-direction:column;gap:1.4rem"></div>';
+    const put = (id, v) => box.querySelector(id).textContent = v;
+    box.querySelector('h2').textContent = o.id; put('#x-name', o.name); put('#x-mrn', o.mrn); put('#x-age', o.ageSex); put('#x-from', o.inst.name === o.inst.local ? o.inst.name : o.inst.name + ' (' + o.inst.local + ')');
+    put('#x-exam', o.exam.replace('\n', ' ')); put('#x-pri', o.pri); put('#x-ref', o.referrer); put('#x-when', o.date + ', ' + o.clock); put('#x-hist', o.history);
+    box.querySelectorAll('.kvs b').forEach(b => b.style.fontWeight = 400);
+    const files = box.querySelector('#x-files');
+    if (live) files.innerHTML = '<span class="label">Not stored by the SIMRS backend yet.</span>';
+    else if (!o.files || !o.files.length) files.innerHTML = '<span class="label">None attached.</span>';
+    else o.files.forEach(f => { const c = document.createElement('span'); c.className = 'chip'; c.textContent = f.name; files.append(c); });
+    const act = box.querySelector('#x-act'), btn = (cls, text, fn, href) => { const b = document.createElement(href ? 'a' : 'button'); b.className = 'pbtn ' + cls; b.textContent = text; if (href) b.href = href; else b.addEventListener('click', fn); act.append(b); return b; };
+    const note = text => { const n = document.createElement('div'); n.className = 'label'; n.textContent = text; act.append(n); };
+    if (live) {
+      if (o.status === 'Requested') {
+        const can = me && CAN_UPLOAD.includes(me.role);
+        if (can) btn('solid', 'Upload images', null, 'upload.html?order=' + encodeURIComponent(o.id));
+        else btn('solid', 'Upload images').disabled = true;
+        btn('ghost', 'Accept order').disabled = true;
+        // POST /api/orders/{id}/return: back to the ward with a reason, while no images are in
+        const back = btn('ghost danger', 'Send back', () => {
+          act.innerHTML = '<input type="text" id="x-why" placeholder="Reason for sending it back" maxlength="500">'; const i = act.querySelector('input'); i.focus();
+          btn('solid', 'Confirm', async () => {
+            const reason = i.value.trim(); if (!reason) { i.focus(); MyFx.toast('Write the reason first'); return; }
+            try { await MyApi.post('orders/' + encodeURIComponent(o.id) + '/return', { reason }); MyFx.toast(o.id + ' sent back to ' + o.inst.local); view = 'back'; }
+            catch (err) { MyFx.toast(err.status === 403 ? 'Only a radiographer or an admin can send a request back.' : err.status === 409 ? 'This request was already handled.' : 'Not sent back: ' + err.message); }
+            await load(); render(true);
+          });
+          btn('ghost', 'Cancel', detail);
+        });
+        if (!can) back.disabled = true;
+        note(can ? 'Uploading the images accepts the request: the SIMRS backend has no separate accept step.' : 'Only a radiographer or an admin can upload images or send a request back.');
+      } else if (o.status === 'Rejected') { const r = document.createElement('div'); r.className = 'result bad'; r.textContent = 'Sent back' + (o.backBy ? ' by ' + o.backBy : '') + ': ' + (o.back || 'no reason given'); act.append(r); }
+      else if (o.study) btn('solid', o.status === 'Reported' ? 'Open report' : 'Open study', null, 'viewer.html?study=' + encodeURIComponent(o.study) + (o.status === 'Reported' ? '&report=1' : ''));
+      return;
+    }
+    if (o.status === 'Requested') {
+      btn('solid', 'Accept order', () => { MockStore.updateOrder(o.id, { status: 'Accepted' }); view = 'todo'; MyFx.toast(o.id + ' accepted'); render(); });
+      btn('ghost danger', 'Send back', () => {
+        act.innerHTML = '<input type="text" id="x-why" placeholder="Reason for sending it back">'; const i = act.querySelector('input'); i.focus();
+        btn('solid', 'Confirm', () => { MockStore.updateOrder(o.id, { status: 'Rejected', note: i.value.trim() }); MyFx.toast(o.id + ' sent back'); render(); });
+        btn('ghost', 'Cancel', detail);
+      });
+    } else if (o.status === 'Accepted') btn('solid', 'Upload images', null, 'upload.html?order=' + o.id);
+    else if (o.study) btn('solid', o.status === 'Reported' ? 'Open report' : 'Open study', null, 'viewer.html?mrn=' + encodeURIComponent(o.study) + (o.status === 'Reported' ? '&report=1' : ''));
+    else if (o.status === 'Rejected') { const r = document.createElement('div'); r.className = 'result bad'; r.textContent = 'Sent back: ' + (o.note || 'no reason given'); act.append(r); }
+  }
+  await load(); render();
+  if (!live) addEventListener('storage', () => render(true));
+  else addEventListener('focus', async () => { await load(); render(true); });   // back from the upload page in another tab
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en" class="fit">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MyPACS — Continue</title>
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="mypacs.css"><link rel="stylesheet" href="fx.css"><link rel="stylesheet" href="pages.css">
+<style>
+/* live sign-in (backend there): the password form sits where the account cards are */
+.login .acct{cursor:pointer}
+.login .acct .pic{display:grid;place-items:center;color:var(--ink);font-size:3.6rem;font-weight:500}
+.login .sign{position:absolute;left:98.6rem;top:39.3rem;width:59.4rem;display:flex;flex-direction:column;gap:1.8rem}
+.login .sign[hidden]{display:none}
+.login .sign .who{font-size:3rem;line-height:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.login .sign input{width:100%;height:7rem;padding:0 2.6rem;border:.1rem solid rgba(255,255,255,.5);border-radius:2rem;
+  background:rgba(255,255,255,.12);color:#fff;font:inherit;font-size:2.6rem;outline:none;transition:background .2s,box-shadow .2s}
+.login .sign input::placeholder{color:rgba(255,255,255,.6)}
+.login .sign input:focus{background:rgba(255,255,255,.2);box-shadow:var(--glow-sm)}
+.login .sign .msg{min-height:2.8rem;font-size:2.1rem;color:#ffd0d0}
+.login .sign .row{display:flex;gap:2rem}
+.login .sign .pbtn{position:static;flex:1;width:auto}
+.login .sign .pbtn[disabled]{opacity:.6;cursor:default}
+</style>
+<script src="fx-head.js"></script>
+</head>
+<body class="login">
+<div class="backdrop"><img src="assets/bg-wave.png" alt=""></div>
+<main class="stage">
+  <div class="card lit"></div>
+  <h1 class="tc" style="left:95.95rem;top:24.45rem;font-size:11rem">Continue</h1>
+  <p class="t" id="l-hint" style="left:34.6rem;top:61.05rem;font-size:5rem">Please choose an account</p>
+
+  <a class="acct" href="home.html" style="top:39.3rem">
+    <span class="pic"></span>
+    <span class="t" style="left:14.4rem;top:5.25rem;font-size:5rem">John Doe</span>
+    <span class="t" style="left:14.4rem;top:9.65rem;font-size:2rem">johndoe@gmail.com</span>
+  </a>
+  <div class="rule" style="top:53.3rem"></div>
+  <a class="acct" href="signin.html" style="top:54.6rem">
+    <span class="pic"></span>
+    <span class="t" style="left:14.1rem;top:5.35rem;font-size:5rem">Josh Geez</span>
+    <span class="t" style="left:14.1rem;top:9.45rem;font-size:2rem">joshgeez@gmail.com</span>
+    <span class="t" style="left:50.8rem;top:6.45rem;font-size:2rem">Signed Out</span>
+  </a>
+  <div class="rule" style="top:69.1rem"></div>
+  <a class="acct" href="signin.html" style="top:70rem">
+    <span class="pic"></span>
+    <span class="t" style="left:14.1rem;top:5.35rem;font-size:5rem">Jane Doe</span>
+    <span class="t" style="left:14.1rem;top:9.45rem;font-size:2rem">janedoe@gmail.com</span>
+    <span class="t" style="left:50.8rem;top:6.45rem;font-size:2rem">Signed Out</span>
+  </a>
+
+  <form class="sign" id="l-form" hidden autocomplete="on">
+    <div class="who" id="l-who">Sign in</div>
+    <input id="l-user" name="username" placeholder="Username" aria-label="Username" autocomplete="username" required>
+    <input id="l-pass" name="password" type="password" placeholder="Password" aria-label="Password" autocomplete="current-password" required>
+    <div class="msg" id="l-msg" role="alert"></div>
+    <div class="row">
+      <button class="pbtn ghost" type="button" id="l-back">‹ Accounts</button>
+      <button class="pbtn solid" type="submit" id="l-go">Continue</button>
+    </div>
+  </form>
+</main>
+<script src="api.js"></script>
+<script src="mockstore.js"></script>
+<script src="fx.js"></script>
+<script>
+// Offline (no backend): the three demo cards above, exactly as drawn.
+// Live: real sign-in through MyApi.login. The cards are this browser's accounts: the one signed in now
+// (continue straight on) and the ones used before (the card fills the username), then "another account".
+(async function () {
+  if (!(await MyApi.ready)) return;
+  const $ = q => document.querySelector(q);
+  const ACC_KEY = 'mypacs.accounts.v1';           // names of accounts used in this browser; never passwords or tokens
+  const HOME = { radiolog: 'home.html', admin: 'home.html', radiografer: 'orders.html', dokter_bedah: 'installations.html' };
+  const q = new URLSearchParams(location.search), next = q.get('next') || '';
+  // only back to a plain MyPACS page, never to another site or back to the sign-in pages
+  const okNext = /^[a-z0-9_-]+\.html([?#].*)?$/i.test(next) && !/^(login|signin|index)\.html/i.test(next);
+  const target = u => okNext ? next : (HOME[u.role] || 'home.html');
+  const known = () => { try { return JSON.parse(localStorage.getItem(ACC_KEY) || '[]').filter(a => a && a.username); } catch (_) { return []; } };
+  const remember = u => {
+    const list = [{ username: u.username, full_name: u.full_name, role_label: u.role_label }, ...known().filter(a => a.username !== u.username)].slice(0, 5);
+    try { localStorage.setItem(ACC_KEY, JSON.stringify(list)); } catch (_) {}
+  };
+  const initials = n => String(n || '').replace(/^(dr|drg|ns)\.?\s+/i, '').split(/[\s,]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+  const el = (tag, cls, text, style) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; if (style) e.style.cssText = style; return e; };
+
+  const me = await MyApi.user();                  // this tab's login, else this browser's
+  const stage = $('.stage'), form = $('#l-form'), msg = $('#l-msg'), go = $('#l-go');
+
+  const cards = on => stage.querySelectorAll(':scope > .acct, :scope > .rule').forEach(x => { x.hidden = !on; });
+  function showForm(username, name) {
+    cards(false); form.hidden = false; msg.textContent = '';
+    $('#l-hint').textContent = 'Sign in with your account';
+    $('#l-who').textContent = name ? 'Sign in as ' + name : 'Sign in';
+    $('#l-user').value = username || ''; $('#l-pass').value = '';
+    (username ? $('#l-pass') : $('#l-user')).focus();
+  }
+  function showCards() {
+    const rows = [];
+    if (me) rows.push({ ...me, on: true });
+    known().forEach(a => { if (!me || a.username !== me.username) rows.push(a); });
+    rows.splice(2);                               // the card has room for three rows; the last is "another account"
+    rows.push({ other: true });
+    if (rows.length === 1) { showForm(''); $('#l-back').style.display = 'none'; return; }   // nothing to choose from yet
+    stage.querySelectorAll(':scope > .acct, :scope > .rule').forEach(x => x.remove());
+    rows.forEach((r, i) => {
+      const top = 39.3 + i * 15.35;
+      if (i) stage.insertBefore(el('div', 'rule', null, 'top:' + (top - 1.1).toFixed(2) + 'rem'), form);
+      const a = el('a', 'acct', null, 'top:' + top.toFixed(2) + 'rem'); a.href = r.on ? target(r) : '#';
+      a.append(el('span', 'pic', r.other ? '+' : initials(r.full_name)));
+      a.append(el('span', 't', r.other ? 'Another account' : r.full_name, 'left:14.4rem;top:5.25rem;font-size:4rem;max-width:46rem;overflow:hidden;text-overflow:ellipsis'));
+      a.append(el('span', 't', r.other ? 'Sign in with username and password' : r.username + ' · ' + (r.role_label || ''), 'left:14.4rem;top:9.65rem;font-size:2rem'));
+      if (!r.other) a.append(el('span', 't', r.on ? 'Signed In' : 'Signed Out', 'right:2.4rem;top:9.65rem;font-size:2rem'));
+      a.addEventListener('click', e => {
+        if (r.on) { remember(r); return; }        // already signed in: the link goes straight on
+        e.preventDefault(); showForm(r.other ? '' : r.username, r.other ? '' : r.full_name);
+      });
+      stage.insertBefore(a, form);
+    });
+    cards(true); form.hidden = true; $('#l-hint').textContent = 'Please choose an account';
+  }
+
+  $('#l-back').addEventListener('click', showCards);
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    msg.textContent = ''; go.disabled = true;
+    try {
+      const u = await MyApi.login($('#l-user').value.trim(), $('#l-pass').value);
+      remember(u); location.replace(target(u));
+    } catch (err) {
+      msg.textContent = err instanceof MyApi.Error ? err.message : 'Cannot reach the server';
+      $('#l-pass').select();
+    } finally { go.disabled = false; }
+  });
+
+  if (q.has('account')) showForm(q.get('account') || ''); else showCards();
+})();
+</script>
+</body>
+</html>
