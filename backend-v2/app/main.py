@@ -12,9 +12,12 @@ from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.db import engine
+from app.modules.archive.router import router as archive_router
 from app.modules.auth.router import router as auth_router
+from app.modules.operations.router import router as operations_router
 from app.modules.orders.router import router as orders_router
 from app.modules.patients.router import router as patients_router
+from app.modules.satusehat.router import router as satusehat_router
 
 
 def create_app() -> FastAPI:
@@ -52,6 +55,9 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(patients_router)
     app.include_router(orders_router)
+    app.include_router(archive_router)
+    app.include_router(satusehat_router)
+    app.include_router(operations_router)
 
     # Serve the Frontend/ folder (MyPACS at /mypacs/...). Mounted LAST so it never hides an /api route.
     if settings.frontend_dir.is_dir():

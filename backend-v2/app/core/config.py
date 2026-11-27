@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://pacs:change_me@localhost:5432/pacs"
     storage_dir: Path = Path("storage")
+    max_upload_mb: int = 2048            # per file; a single uncompressed CT slice is about 0.5 MB
     session_ttl_hours: int = 12
     cors_origins: str = ""
     cookie_secure: bool = False

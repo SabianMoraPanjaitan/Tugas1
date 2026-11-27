@@ -41,7 +41,7 @@ def _study_summary(study: Study | None, report: Report | None, reporter: str | N
     reading = report if (report is not None and sent) else None
     return {"id": str(study.id), "file": None, "created": _iso(study.created_at),
             "modality": (study.modalities or [None])[0], "sent": sent,
-            "icd10": reading.icd10 if reading else "", "diagnosis": reading.impression if reading else "",
+            "icd10": reading.icd10 if reading else "", "diagnosis": reading.diagnosis if reading else "",
             "finding": reading.findings if reading else "", "reported_by": reporter if reading else None}
 
 

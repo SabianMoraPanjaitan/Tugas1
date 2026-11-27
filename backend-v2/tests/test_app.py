@@ -4,7 +4,11 @@
 def test_routes_mypacs_needs_exist(client):
     paths = {route.path for route in client.app.routes}
     for path in ("/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/me", "/api/auth/tab-session",
-                 "/api/patients", "/api/orders", "/api/orders/{order_id}/return"):
+                 "/api/patients", "/api/orders", "/api/orders/{order_id}/return",
+                 "/api/studies", "/api/studies/{study_id}/file", "/api/studies/{study_id}/slices",
+                 "/api/studies/{study_id}/reading", "/api/studies/{study_id}/instances",
+                 "/api/instances/{sop_uid}/file", "/api/satusehat/send-study", "/api/satusehat/patient",
+                 "/api/operations", "/api/satusehat/send-procedure"):
         assert path in paths
 
 

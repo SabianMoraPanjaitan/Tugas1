@@ -22,8 +22,9 @@ class Report(Base):
     study_id: Mapped[int] = mapped_column(ForeignKey("studies.id"), unique=True, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="draft")
     icd10: Mapped[str | None] = mapped_column(Text)
-    findings: Mapped[str | None] = mapped_column(Text)
-    impression: Mapped[str | None] = mapped_column(Text)        # the old backend called this "diagnosis"
+    diagnosis: Mapped[str | None] = mapped_column(Text)         # the ICD-10 diagnosis text, e.g. "Pneumonia, unspecified"
+    findings: Mapped[str | None] = mapped_column(Text)          # MyPACS sends findings + impression as one text ("finding")
+    impression: Mapped[str | None] = mapped_column(Text)        # separate field, for clients that send it apart
     author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     satusehat_diagnostic_report_id: Mapped[str | None] = mapped_column(Text)
@@ -44,6 +45,7 @@ class ReportVersion(Base):
     version: Mapped[int] = mapped_column(Integer, primary_key=True)
     status: Mapped[str] = mapped_column(Text, nullable=False)
     icd10: Mapped[str | None] = mapped_column(Text)
+    diagnosis: Mapped[str | None] = mapped_column(Text)
     findings: Mapped[str | None] = mapped_column(Text)
     impression: Mapped[str | None] = mapped_column(Text)
     source: Mapped[str] = mapped_column(Text, nullable=False, server_default="typed")   # for dictation later

@@ -8,8 +8,9 @@ alembic==1.14.0
 pydantic-settings==2.7.0
 python-multipart==0.0.20
 httpx==0.28.1            # SATUSEHAT calls (and FastAPI's test client)
+pydicom==3.0.2           # read DICOM tags
+nibabel==5.4.2           # read NIfTI volumes
+numpy==2.5.3
 
 # tests
 pytest==8.3.4
-
-# Added in later steps (DICOM ingest, NIfTI, SATUSEHAT): pydicom, nibabel, numpy
