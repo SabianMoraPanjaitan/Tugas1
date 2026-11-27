@@ -1,0 +1,15 @@
+# MyPACS backend v2 (FastAPI + PostgreSQL)
+# Install:  python -m pip install -r requirements.txt
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+SQLAlchemy==2.0.36
+psycopg[binary]==3.2.3
+alembic==1.14.0
+pydantic-settings==2.7.0
+python-multipart==0.0.20
+httpx==0.28.1            # SATUSEHAT calls (and FastAPI's test client)
+
+# tests
+pytest==8.3.4
+
+# Added in later steps (DICOM ingest, NIfTI, SATUSEHAT): pydicom, nibabel, numpy
